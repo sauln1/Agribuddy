@@ -38,16 +38,16 @@ A Home Assistant integration + Lovelace card for tracking your garden. Plan grow
   [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=sauln1&repository=agribud&category=Integration)
   
 1. Open HACS in Home Assistant.
-2. Go to **Integrations** → click the **⋮** menu → **Custom repositories**.
+2. Go to **Integrations** → click the ** ⋮**menu → **Custom repositories**.
 3. Add this repository URL with category **Integration**:
-   `https://github.com/<your-username>/agribud`
+   `https://github.com/sauln1/agribud`
 4. Search for "Agribud" in HACS and install it.
 5. Restart Home Assistant.
 6. Repeat steps 2–4 under HACS → **Frontend** to install the dashboard card.
 
 ### Manual install
 
-1. Download the latest release zip from the [Releases](https://github.com/<your-username>/agribud/releases) page.
+1. Download the latest release zip from the [Releases](https://github.com/sauln1/agribud/releases) page.
 2. Extract into your HA config directory so you have:
    - `config/custom_components/agribud/` (the integration)
    - `config/www/agribud-card/` (the dashboard card)
