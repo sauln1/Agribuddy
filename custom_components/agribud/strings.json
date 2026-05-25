@@ -1,0 +1,42 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Verdantly (via RapidAPI)",
+        "description": "\u26a0\ufe0f FREE TIER LIMIT: Only **25 API calls per month**.\n\nAgribud caches search results for 30 days and stores each plant's full data locally, so each unique plant search costs just 1 call and opening an already-added plant costs nothing. Still, plan your searches.\n\nSteps to get your API key:\n1. Visit {signup_url}\n2. Sign up for RapidAPI (free) and subscribe to the Verdantly Gardening API (free Basic plan)\n3. Copy your X-RapidAPI-Key from the dashboard and paste below.\n\nYour key is NOT validated here (validation would burn 1 of your 25 monthly calls). The first plant search will surface any auth issues.",
+        "data": {
+          "api_key": "RapidAPI key (X-RapidAPI-Key header value)"
+        }
+      },
+      "weather": {
+        "title": "Pick your weather entity",
+        "description": "Choose any HA entity that surfaces current weather. Agribud reads its state for rain/snow detection and its attributes for frost forecasting. Doesn't have to be a `weather.*` entity \u2014 a sensor or template entity works too.",
+        "data": {
+          "weather_entity": "Weather entity"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Verdantly rejected this key. Make sure you're subscribed to the Verdantly Gardening API on RapidAPI and copied the X-RapidAPI-Key exactly.",
+      "cannot_connect": "Cannot reach RapidAPI (verdantly-gardening-api.p.rapidapi.com). Check your internet connection.",
+      "rate_limited": "RapidAPI rate limit hit \u2014 you may be out of the 25-calls-per-month free tier quota. Wait for the monthly reset or upgrade your RapidAPI subscription.",
+      "api_error": "Verdantly returned an error. Check your key and try again later.",
+      "api_key_empty": "API key cannot be empty.",
+      "unknown": "Unexpected error \u2014 see HA logs (search 'agribud') for details."
+    },
+    "abort": {
+      "already_configured": "Agribud is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Agribud options",
+        "data": {
+          "update_interval": "Update interval (minutes \u2014 default 1440, i.e. 24h)",
+          "weather_entity": "Weather entity"
+        }
+      }
+    }
+  }
+}
