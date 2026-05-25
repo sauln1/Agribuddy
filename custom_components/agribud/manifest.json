@@ -1,14 +1,14 @@
 {
+  "domain": "agribud",
+  "name": "Agribud",
   "codeowners": [],
   "config_flow": true,
   "dependencies": [
     "http"
   ],
   "documentation": "https://github.com/sauln1/Agribud",
-  "domain": "agribud",
-  "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/sauln1/Agribud/issues",
-  "name": "Agribud",
+  "iot_class": "cloud_polling",
   "requirements": [
     "aiohttp>=3.9.0"
   ],
