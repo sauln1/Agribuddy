@@ -1,0 +1,182 @@
+add_plant:
+  name: Add plant
+  description: Add a new plant to the Agribud garden tracker.
+  fields:
+    plant_name:
+      name: Plant name
+      description: Display name for the plant.
+      required: true
+      example: Cherry Tomatoes
+      selector: { text: }
+    species_id:
+      name: Verdantly variety UUID
+      description: Verdantly variety UUID (from card search).
+      required: true
+      example: "2776"
+      selector: { text: }
+    species_data:
+      name: Species data (optional)
+      description: >
+        Full Verdantly variety object (returned inline by the search endpoint). When supplied, the backend caches it
+        on the plant record directly and makes zero API calls. The card sends
+        this automatically — manual service calls can omit it.
+      required: false
+      selector: { object: }
+    start_type:
+      name: Started from
+      required: false
+      default: seed
+      example: seed
+      selector:
+        select:
+          options: [seed, transplant]
+    start_date:
+      name: Start date
+      description: Planting date (YYYY-MM-DD). May be in the future to schedule a planting.
+      required: false
+      example: "2026-04-15"
+      selector: { date: }
+    location:
+      name: Grow plot
+      description: Optional grow plot or bed label.
+      required: false
+      example: Raised bed 1
+      selector: { text: }
+    plot_id:
+      name: Grow plot ID
+      description: Optional UUID of the grow plot to assign this plant to.
+      required: false
+      example: "550e8400-e29b-41d4-a716-446655440000"
+      selector: { text: }
+
+remove_plant:
+  name: Remove plant
+  description: Permanently remove a plant, all its events, and its cached species data.
+  fields:
+    plant_id:
+      name: Plant ID
+      description: UUID of the plant.
+      required: true
+      example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      selector: { text: }
+
+log_event:
+  name: Log event
+  description: Manually log a care event for a plant.
+  fields:
+    plant_id:
+      name: Plant ID
+      required: true
+      selector: { text: }
+    event_type:
+      name: Event type
+      required: true
+      selector:
+        select:
+          options:
+            - watered
+            - fertilized
+            - pest_spotted
+            - blight
+            - snow
+            - sprouted
+            - harvested
+            - transplanted
+            - other
+    note:
+      name: Note
+      required: false
+      selector: { text: }
+    date:
+      name: Date
+      required: false
+      selector: { date: }
+
+remove_event:
+  name: Remove event
+  description: Remove a previously logged event from a plant's history.
+  fields:
+    plant_id:
+      name: Plant ID
+      required: true
+      selector: { text: }
+    event_id:
+      name: Event ID
+      required: true
+      selector: { text: }
+
+update_plant_overrides:
+  name: Update plant overrides
+  description: >
+    Apply user-supplied display overrides to a plant. Overrides take precedence
+    over the Verdantly species_data when rendering the trading card. They do not
+    modify the cached Verdantly data — sending an empty string for a key removes
+    that override (falls back to Verdantly's value).
+  fields:
+    plant_id:
+      name: Plant ID
+      required: true
+      example: "abc123"
+      selector: { text: }
+    overrides:
+      name: Overrides
+      description: >
+        Dict of {field: value}. Allowed fields:
+        common_name, scientific_name,
+        light_requirements, water_use,
+        watering_min_days, watering_max_days,
+        soil_preference, spacing_requirement, growth_period,
+        soil_ph_min, soil_ph_max,
+        hardiness_zone_min, hardiness_zone_max,
+        days_to_harvest_min, days_to_harvest_max,
+        invasive_alert,
+        care_instructions, description, habitat,
+        image_url.
+        Send an empty string for any field to remove that override (falls
+        back to Verdantly's value).
+      required: true
+      selector: { object: }
+
+update_plant:
+  name: Update plant
+  description: >
+    Edit the core fields of an existing plant (display name, start date,
+    start type, location, plot assignment). Distinct from
+    update_plant_overrides which only edits species_data display fields.
+    Re-anchors the synthetic 'planted' calendar event when start_date
+    changes so the history view stays consistent.
+  fields:
+    plant_id:
+      name: Plant ID
+      required: true
+      example: "abc123"
+      selector: { text: }
+    plant_name:
+      name: Display name
+      required: false
+      example: "Cherry tomato — east bed"
+      selector: { text: }
+    start_type:
+      name: Start type
+      required: false
+      example: "seed"
+      selector:
+        select:
+          options:
+            - seed
+            - transplant
+    start_date:
+      name: Start date
+      required: false
+      example: "2026-05-01"
+      selector: { date: }
+    location:
+      name: Location
+      required: false
+      example: "Back garden, row 2"
+      selector: { text: }
+    plot_id:
+      name: Plot ID
+      required: false
+      example: "plot_abc"
+      selector: { text: }

@@ -1,0 +1,16 @@
+{
+  "domain": "agribud",
+  "name": "Agribud",
+  "version": "1.1.1",
+  "documentation": "https://github.com/sauln1/Agribud",
+  "issue_tracker": "https://github.com/sauln1/Agribud/issues",
+  "dependencies": [
+    "http"
+  ],
+  "codeowners": [],
+  "requirements": [
+    "aiohttp>=3.9.0"
+  ],
+  "iot_class": "cloud_polling",
+  "config_flow": true
+}
