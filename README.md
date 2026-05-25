@@ -1,46 +1,197 @@
-# Notice
+# Agribud
 
-The component and platforms in this repository are not meant to be used by a
-user, but as a "blueprint" that custom component developers can build
-upon, to make more awesome stuff.
+A Home Assistant integration + Lovelace card for tracking your garden. Plan grow plots, log waterings and harvests, and let the integration warn you when plants need attention based on weather and watering history.
 
-HAVE FUN! 😎
+<sup>* Integration developed with assistance from AI.</sup>
 
-## Why?
+![Version](https://img.shields.io/badge/version-1.1.1-1D9E75)
+![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.1%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-This is simple, by having custom_components look (README + structure) the same
-it is easier for developers to help each other and for users to start using them.
+---
 
-If you are a developer and you want to add things to this "blueprint" that you think more
-developers will have use for, please open a PR to add it :)
+## Features
 
-## What?
+- **Plant database** — search 440,000+ plant species and 15,000+ cultivated varieties via the [Verdantly Gardening API](https://verdantly.io/docs/introduction). Includes plant data like care instructions, hardiness zones, soil and pH preferences, harvest timing, toxicity warnings, and more.
+- **Grow plots** — organize plants into named beds or containers. See at a glance which plants live where.
+- **Watering automation** — each plant gets a per-species watering schedule (e.g. "Moderate" = 3-7 days). Plants overdue for water surface as "Thirsty" with a 💧 badge. Rain detected on your weather entity counts as a watering automatically, so your plants don't get marked thirsty after a storm.
+- **Frost protection** — plants enter a "Frost danger" state when your weather entity forecasts freezing temperatures tonight. Status icon turns red on the dashboard.
+- **Plant statuses** — five states exposed on each plant's sensor entity, easily added to automations or scenes: `scheduled`, `healthy`, `thirsty`, `danger`, `harvested`, `dead`.
+- **Calendar view** — week or season layouts. Week shows watering, harvest, sprout, and rain dots per day. Season shows every plant you started in Spring 2026, with its current/end status.
+- **6-month soft delete + archival** — removing a plant keeps its species data for 6 months so you can re-add the same variety with zero API calls. After 6 months, a slim history record (name, dates, events) is preserved indefinitely so your seasonal history never disappears. All data stored locally.
+- **User overrides** — Verdantly missing a value or just wrong for your specific plant? Override any field per-plant via the trading card's Edit details overlay. Original Verdantly data stays cached; overrides are layered on top (New plants can be suggested to Verdantly via their website).
+- **Themed Lovelace card** — modern card design that matches the rest of the HA UI. Auto / portrait / landscape layout toggle. Plant image (Verdantly-supplied or emoji fallback), light/water tiles, key/value detail grid, scrollable care instructions, taxonomy footer.
 
-This repository contains multiple files, here is a overview:
+---
 
-File | Purpose | Documentation
--- | -- | --
-`.devcontainer.json` | Used for development/testing with Visual Studio Code. | [Documentation](https://code.visualstudio.com/docs/remote/containers)
-`.github/ISSUE_TEMPLATE/*.yml` | Templates for the issue tracker | [Documentation](https://help.github.com/en/github/building-a-strong-community/configuring-issue-templates-for-your-repository)
-`custom_components/integration_blueprint/*` | Integration files, this is where everything happens. | [Documentation](https://developers.home-assistant.io/docs/creating_component_index)
-`CONTRIBUTING.md` | Guidelines on how to contribute. | [Documentation](https://help.github.com/en/github/building-a-strong-community/setting-guidelines-for-repository-contributors)
-`LICENSE` | The license file for the project. | [Documentation](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/licensing-a-repository)
-`README.md` | The file you are reading now, should contain info about the integration, installation and configuration instructions. | [Documentation](https://help.github.com/en/github/writing-on-github/basic-writing-and-formatting-syntax)
-`requirements.txt` | Python packages used for development/lint/testing this integration. | [Documentation](https://pip.pypa.io/en/stable/user_guide/#requirements-files)
+## Requirements
 
-## How?
+- Home Assistant 2025.1 or later
+- A weather entity (HA's built-in weather integration, MQTT weather sensor, template, or any entity exposing the standard weather attributes)
+- A free RapidAPI account + Verdantly Gardening API subscription. See setup below.
 
-1. Create a new repository in GitHub, using this repository as a template by clicking the "Use this template" button in the GitHub UI.
-1. Open your new repository in Visual Studio Code devcontainer (Preferably with the "`Dev Containers: Clone Repository in Named Container Volume...`" option).
-1. Rename all instances of the `integration_blueprint` to `custom_components/<your_integration_domain>` (e.g. `custom_components/awesome_integration`).
-1. Rename all instances of the `Integration Blueprint` to `<Your Integration Name>` (e.g. `Awesome Integration`).
-1. Run the `scripts/develop` to start HA and test out your new integration.
+---
 
-## Next steps
+## Installation
 
-These are some next steps you may want to look into:
-- Add tests to your integration, [`pytest-homeassistant-custom-component`](https://github.com/MatthewFlamm/pytest-homeassistant-custom-component) can help you get started.
-- Add brand images (logo/icon).
-- Create your first release.
-- Share your integration on the [Home Assistant Forum](https://community.home-assistant.io/).
-- Submit your integration to [HACS](https://hacs.xyz/docs/publish/start).
+### Via HACS (recommended)
+  [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=sauln1&repository=agribud&category=Integration)
+  
+1. Open HACS in Home Assistant.
+2. Go to **Integrations** → click the **⋮** menu → **Custom repositories**.
+3. Add this repository URL with category **Integration**:
+   `https://github.com/<your-username>/agribud`
+4. Search for "Agribud" in HACS and install it.
+5. Restart Home Assistant.
+6. Repeat steps 2–4 under HACS → **Frontend** to install the dashboard card.
+
+### Manual install
+
+1. Download the latest release zip from the [Releases](https://github.com/<your-username>/agribud/releases) page.
+2. Extract into your HA config directory so you have:
+   - `config/custom_components/agribud/` (the integration)
+   - `config/www/agribud-card/` (the dashboard card)
+3. Add the card resource in HA: **Settings → Dashboards → ⋮ → Resources → Add resource**:
+   - URL: `/local/agribud-card/agribud-card.js?v=1`
+   - Resource type: **JavaScript Module**
+4. Restart Home Assistant.
+
+---
+
+## Setup
+
+### 1. Get a Verdantly API key (free)
+
+1. Go to [RapidAPI's Verdantly Gardening API page](https://rapidapi.com/verdantly-team-verdantly-team-default/api/verdantly-gardening-api).
+2. Sign up for a free RapidAPI account.
+3. Subscribe to the **Basic (Free)** plan — 25 API calls per month, no credit card required.
+4. Copy your **X-RapidAPI-Key** from the dashboard. This is what Agribud needs.
+
+### 2. Add the integration
+
+1. Go to **Settings → Devices & Services → Add Integration**.
+2. Search for **Agribud**.
+3. Paste your RapidAPI key when prompted. Agribud doesn't validate the key on setup (validation would burn 1 of your 25 monthly calls) — the first plant search will surface any auth issues.
+4. Pick your weather entity. Any entity works — a `weather.*` entity, a sensor that exposes temperature/precipitation attributes, a template entity, etc.
+
+### 3. Add the card to your dashboard
+
+1. Edit your dashboard → **+ Add Card** → search for **Agribud**.
+2. (Optional) Set a card title and starting layout. Defaults are sensible.
+3. Save.
+
+The integration also creates one sensor entity per added plant: `sensor.<plant_name>` with state `healthy` / `thirsty` / `danger` / `harvested` / `dead` / `scheduled`. Use these directly in automations.
+
+---
+
+## NOTE: API call budget (the 25/month free tier)
+
+Verdantly's free Basic plan caps you at **25 API calls per month**. Agribud is built around this constraint with aggressive caching. Upgrade to a paid RapidAPI tier for more calls. The integration works agnostic of selected plan.
+
+---
+
+## How statuses work
+
+Each plant's sensor reports one of six states:
+
+| State | When | Color | Icon |
+|---|---|---|---|
+| `scheduled` | `start_date` is in the future | Blue | 📅 |
+| `healthy` | Default — watered recently, no frost | Green | 🌱 |
+| `thirsty` | `days_since_watered ≥ watering_min_days` | Orange | 💧 |
+| `danger` | Frost forecast on weather entity | Red | ❄️ |
+| `harvested` | Harvest event logged — terminal until plant deleted | Grey | 🧺 |
+| `dead` | Dead event logged — terminal until plant deleted | Dark grey | 💀 |
+
+Frost takes precedence over thirsty (more urgent). Dead trumps harvested (a dead plant wasn't harvested).
+
+The watering threshold values are estimated lengths of time that derive from Verdantly's `waterRequirement` field:
+- **Low** → check every 7–14 days
+- **Moderate** → check every 3–7 days
+- **High** → check every 1–3 days
+
+Both bounds are per-plant overridable in the trading card's Edit details overlay.
+
+Rain detected on your weather entity counts as a watering — Agribud logs a `rain_detected` event automatically and the plant's badge shows 🌧 (blue) for a few days afterward.
+
+---
+
+## Layout
+
+The card supports three layouts:
+
+- **Auto** (default) — adapts based on screen width. Viewport ≤ 600px → portrait, larger → landscape.
+- **Portrait** — phone-optimized. Metrics in 2×2 grid, plant table as a card stack, plant image shortened.
+- **Landscape** — desktop/tablet optimized. Metrics in 4-across row, plant table horizontal, full plant.
+
+Set via **Settings → Card display → Layout** (Bootstrap-style toggle group). Preference is per-browser (localStorage).
+
+---
+
+## Available services
+
+| Service | Description |
+|---|---|
+| `agribud.add_plant` | Add a plant. Used internally by the card; can be called from automations to bulk-import. |
+| `agribud.remove_plant` | Soft-delete a plant (keeps cache 6 months, then archives history-only forever). |
+| `agribud.log_event` | Log an event (watered, fertilized, pest, harvested, dead, transplanted, sprouted, snow, other). |
+| `agribud.remove_event` | Remove a previously logged event. |
+| `agribud.update_plant` | Edit plant metadata (name, start date, location, etc.). Re-anchors the calendar's "planted" marker if start_date changes. |
+| `agribud.update_plant_overrides` | Set per-plant Verdantly field overrides. Empty string removes an override. |
+
+See HA's **Developer Tools → Services** for the full schema of each.
+
+---
+
+## Storage layout
+
+Agribud stores data in `.storage/agribud.plants`:
+
+```json
+{
+  "plants":          { "<id>": { ... full plant record ... }, ... },
+  "plots":           { "<id>": { ... plot record ... }, ... },
+  "archived_plants": { "<id>": { slim history record }, ... },
+  "weather_log":     { "2026-05-12": {"rain": true, "snow": false, ...}, ... }
+}
+```
+
+Soft-deleted plants stay in `plants` for 180 days with a `deleted_at` timestamp; their species data continues feeding the Recent Plants chip strip. After 180 days, `_archive_old_deleted_plants()` moves them to `archived_plants` as slim history records keeping only id/name/start_date/end_date/end_status/events.
+
+API usage tracking lives in `.storage/agribud.api_usage` keyed by `YYYY-MM`. Resets at the start of each month.
+
+---
+
+## Troubleshooting
+
+**"Verdantly rejected this key"** — the key is wrong or you haven't subscribed to the Verdantly Gardening API on RapidAPI. Double-check by visiting the API page on RapidAPI and confirming the **Subscribe** button is grey ("Subscribed").
+
+**"⛔ quota exhausted"** — you've hit your maximum number of calls for the month. Wait for the monthly reset or upgrade to a higher RapidAPI tier. Adding plants you already have in the Recent Plants strip doesn't burn calls.
+
+**Plant card shows blank fields** — the plant might be from before Verdantly migration. Delete it and re-add via search.
+
+**Status entity stuck at "unknown"** — the coordinator hasn't completed its first refresh. Wait 5–10 seconds after HA startup. If it persists, check HA logs for `agribud` errors.
+
+**Card version mismatch warning** — the JavaScript and Python versions don't match. Make sure you replaced BOTH the integration directory and the card file, then bump the resource URL cache-buster (`?v=N` → `?v=N+1`) and hard-refresh.
+
+For other issues, check `Settings → System → Logs` and filter for `agribud`. The logger is verbose at INFO level.
+
+---
+
+## Privacy
+
+Agribud talks to one external API: Verdantly via RapidAPI, only when you search for or add a plant. The query sent is the plant name you typed (e.g. "tomato"). No location data, no plant photos, nothing about your installation is transmitted.
+
+Weather data is read entirely from your local HA weather entity. Plant records, events, photos, and overrides live in your HA `.storage/` directory and are never sent anywhere.
+
+---
+
+## Credits
+
+Plant data: [Verdantly Gardening API](https://rapidapi.com/verdantly-team-verdantly-team-default/api/verdantly-gardening-api)
+
+---
+
+## License
+
+MIT
