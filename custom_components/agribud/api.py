@@ -21,7 +21,6 @@ free (data comes from the cached species_data on the plant record).
 
 Reference: https://rapidapi.com/verdantly-team-verdantly-team-default/api/verdantly-gardening-api
 """
-
 from __future__ import annotations
 
 import asyncio
@@ -84,9 +83,8 @@ class VerdantlyApiClient:
         self,
         key: str,
         session: aiohttp.ClientSession,
-        on_request=None,  # noqa: ANN001
+        on_request=None,
     ) -> None:
-        """Initialize API key, session."""
         self._key = key
         self._session = session
         self._on_request = on_request
@@ -100,59 +98,60 @@ class VerdantlyApiClient:
         url = f"{VERDANTLY_BASE_URL}{endpoint}"
         safe_url = f"{url}?{urlencode(all_params)}" if all_params else url
         headers = {
-            "x-rapidapi-key": self._key,
+            "x-rapidapi-key":  self._key,
             "x-rapidapi-host": VERDANTLY_HOST,
-            "Accept": "application/json",
-            "Content-Type": "application/json",
+            "Accept":          "application/json",
+            "Content-Type":    "application/json",
         }
         if self._on_request:
             try:
                 self._on_request(endpoint)
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 _LOGGER.debug("Agribud: api-usage callback raised: %s", err)
         try:
             async with asyncio.timeout(TIMEOUT):
-                async with self._session.get(
-                    url, params=all_params, headers=headers
-                ) as r:
+                async with self._session.get(url, params=all_params, headers=headers) as r:
                     return await self._handle(r, safe_url), safe_url
-        except TimeoutError as e:
-            msg = f"Timeout reaching Verdantly API ({safe_url})"
-            raise VerdantlyConnectionError(msg) from e
+        except asyncio.TimeoutError as e:
+            raise VerdantlyConnectionError(
+                f"Timeout reaching Verdantly API ({safe_url})"
+            ) from e
         except aiohttp.ClientConnectionError as e:
-            msg_0 = f"Network error reaching Verdantly: {e}"
-            raise VerdantlyConnectionError(msg_0) from e
+            raise VerdantlyConnectionError(
+                f"Network error reaching Verdantly: {e}"
+            ) from e
 
     @staticmethod
     async def _handle(r: aiohttp.ClientResponse, safe_url: str) -> Any:
-        if r.status in {401, 403}:
+        if r.status == 401 or r.status == 403:
             # RapidAPI returns 401 for missing/bad key and 403 for
             # not-subscribed-to-this-API; treat both as auth errors.
             txt = await r.text()
-            msg = (
+            raise VerdantlyAuthError(
                 "Verdantly rejected the key. Make sure your RapidAPI key is "
                 "valid AND you're subscribed to the Verdantly Gardening API. "
                 f"Response: {txt[:200]}"
             )
-            raise VerdantlyAuthError(msg)
         if r.status == 404:
-            msg_0 = f"Verdantly returned 404 for {safe_url}."
-            raise VerdantlyNotFoundError(msg_0)
+            raise VerdantlyNotFoundError(
+                f"Verdantly returned 404 for {safe_url}."
+            )
         if r.status == 429:
-            msg_1 = (
+            raise VerdantlyRateLimitError(
                 "Verdantly / RapidAPI rate limit exceeded — monthly quota "
                 "reached or burst limit hit."
             )
-            raise VerdantlyRateLimitError(msg_1)
         if not r.ok:
             txt = await r.text()
-            msg_2 = f"Verdantly HTTP {r.status} for {safe_url}: {txt[:200]}"
-            raise VerdantlyApiError(msg_2)
+            raise VerdantlyApiError(
+                f"Verdantly HTTP {r.status} for {safe_url}: {txt[:200]}"
+            )
         try:
             return await r.json()
         except Exception as e:
-            msg_3 = f"Could not parse Verdantly JSON response: {e}"
-            raise VerdantlyApiError(msg_3) from e
+            raise VerdantlyApiError(
+                f"Could not parse Verdantly JSON response: {e}"
+            ) from e
 
     # ── Public methods ────────────────────────────────────────────────────────
 
@@ -164,9 +163,7 @@ class VerdantlyApiClient:
         return True
 
     async def search_plants(
-        self,
-        query: str,
-        state: str | None = None,
+        self, query: str, state: str | None = None,
     ) -> tuple[list[dict], str]:
         """Search plant varieties by name (matches against common name,
         scientific name, and variety/cultivar name).
@@ -181,8 +178,7 @@ class VerdantlyApiClient:
         if state:
             _LOGGER.debug(
                 "Verdantly: state=%r supplied but ignored (Verdantly has no "
-                "state filter)",
-                state,
+                "state filter)", state,
             )
         params: dict[str, Any] = {
             "q": query,
@@ -200,11 +196,8 @@ class VerdantlyApiClient:
                 meta = resp.get("meta") or {}
                 _LOGGER.info(
                     "Verdantly: q=%r → %d results (page %s of %s, total %s)",
-                    query,
-                    len(results),
-                    meta.get("page"),
-                    meta.get("pages"),
-                    meta.get("totalCount"),
+                    query, len(results),
+                    meta.get("page"), meta.get("pages"), meta.get("totalCount"),
                 )
             elif isinstance(data, dict):
                 # Defensive — Verdantly is documented to return a list, but
@@ -215,8 +208,7 @@ class VerdantlyApiClient:
                 _LOGGER.warning(
                     "Verdantly: unexpected response shape for q=%r — top-level "
                     "keys: %s",
-                    query,
-                    list(resp.keys()),
+                    query, list(resp.keys()),
                 )
         elif isinstance(resp, list):
             # Even more defensive — accept a bare array if the API ever
@@ -253,19 +245,19 @@ class VerdantlyApiClient:
 
 # Provider-agnostic aliases — kept so existing imports keep working through
 # the API swap without sweeping rename churn.
-ApifarmerApiClient = VerdantlyApiClient
-ApifarmerAuthError = VerdantlyAuthError
-ApifarmerConnectionError = VerdantlyConnectionError
-ApifarmerRateLimitError = VerdantlyRateLimitError
-ApifarmerApiError = VerdantlyApiError
-ApifarmerNotFoundError = VerdantlyNotFoundError
-FloraApiClient = VerdantlyApiClient
-FloraAuthError = VerdantlyAuthError
-FloraConnectionError = VerdantlyConnectionError
-FloraRateLimitError = VerdantlyRateLimitError
-FloraApiError = VerdantlyApiError
-PerenualApiClient = VerdantlyApiClient
-PerenualAuthError = VerdantlyAuthError
-PerenualConnectionError = VerdantlyConnectionError
-PerenualRateLimitError = VerdantlyRateLimitError
-PerenualApiError = VerdantlyApiError
+ApifarmerApiClient        = VerdantlyApiClient
+ApifarmerAuthError        = VerdantlyAuthError
+ApifarmerConnectionError  = VerdantlyConnectionError
+ApifarmerRateLimitError   = VerdantlyRateLimitError
+ApifarmerApiError         = VerdantlyApiError
+ApifarmerNotFoundError    = VerdantlyNotFoundError
+FloraApiClient        = VerdantlyApiClient
+FloraAuthError        = VerdantlyAuthError
+FloraConnectionError  = VerdantlyConnectionError
+FloraRateLimitError   = VerdantlyRateLimitError
+FloraApiError         = VerdantlyApiError
+PerenualApiClient        = VerdantlyApiClient
+PerenualAuthError        = VerdantlyAuthError
+PerenualConnectionError  = VerdantlyConnectionError
+PerenualRateLimitError   = VerdantlyRateLimitError
+PerenualApiError         = VerdantlyApiError
