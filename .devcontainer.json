@@ -1,5 +1,5 @@
 {
-    "name": "agribud",
+    "name": "sauln1/agribud",
     "image": "mcr.microsoft.com/devcontainers/base:debian",
     "postCreateCommand": "scripts/setup",
     "forwardPorts": [
