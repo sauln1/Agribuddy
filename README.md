@@ -4,7 +4,7 @@ A Home Assistant integration + Lovelace card for tracking your garden. Plan grow
 
 <sup>* Integration developed with assistance from AI.</sup>
 
-![Version](https://img.shields.io/badge/version-1.1.1-1D9E75)
+![Version](https://img.shields.io/badge/version-1.1.2-1D9E75)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.1%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
