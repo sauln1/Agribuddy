@@ -50,7 +50,7 @@
  *    auto-logs rain_detected events per plant.
  */
 
-const DOMAIN   = "agribud";
+const DOMAIN = "agribud";
 const API_BASE = "/api/agribud";
 
 /* ─── Utilities ──────────────────────────────────────────────────────────── */
@@ -60,49 +60,49 @@ const daysAgo = n =>
 
 const isoDisp = iso => {
   if (!iso) return "—";
-  try { return new Date(iso + "T00:00:00").toLocaleDateString("en-US", {month:"short", day:"numeric"}); }
+  try { return new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }); }
   catch { return iso; }
 };
 
 const eventIcon = type => ({
-  watered:"💧", fertilized:"🌿", pest_spotted:"🐛", pest:"🐛",
-  harvested:"🌾", sprouted:"🌱", transplanted:"🪴", planted:"🌰",
-  dead:"💀",
-  rain_detected:"🌧️", frost_alert:"❄️", snow:"🌨️",
-  needs_water:"💧", other:"📝",
+  watered: "💧", fertilized: "🌿", pest_spotted: "🐛", pest: "🐛",
+  harvested: "🌾", sprouted: "🌱", transplanted: "🪴", planted: "🌰",
+  dead: "💀",
+  rain_detected: "🌧️", frost_alert: "❄️", snow: "🌨️",
+  needs_water: "💧", other: "📝",
 })[type] || "📝";
 
 const evColors = type => {
-  if (type==="watered"||type==="rain_detected") return ["#E6F1FB","#185FA5"];
-  if (type==="fertilized")   return ["#EAF3DE","#3B6D11"];
-  if (type==="frost_alert")  return ["#FAECE7","#993C1D"];
-  if (type==="snow")         return ["#E8F0F4","#2E5A7A"];
-  if (type==="pest_spotted"||type==="pest") return ["#FAEEDA","#854F0B"];
-  if (type==="harvested")    return ["#FFF1D6","#7A4F0A"];
-  if (type==="sprouted")     return ["#E6F5DA","#2F6017"];
-  if (type==="transplanted") return ["#E1F5EE","#0F6E56"];
-  if (type==="planted")      return ["#E5DBC8","#5A4221"];
-  if (type==="dead")         return ["#D6D6D6","#2A2A2A"];
-  if (type==="needs_water")  return ["#FFF4D6","#9C7008"];
-  return ["var(--secondary-background-color)","var(--primary-text-color)"];
+  if (type === "watered" || type === "rain_detected") return ["#E6F1FB", "#185FA5"];
+  if (type === "fertilized") return ["#EAF3DE", "#3B6D11"];
+  if (type === "frost_alert") return ["#FAECE7", "#993C1D"];
+  if (type === "snow") return ["#E8F0F4", "#2E5A7A"];
+  if (type === "pest_spotted" || type === "pest") return ["#FAEEDA", "#854F0B"];
+  if (type === "harvested") return ["#FFF1D6", "#7A4F0A"];
+  if (type === "sprouted") return ["#E6F5DA", "#2F6017"];
+  if (type === "transplanted") return ["#E1F5EE", "#0F6E56"];
+  if (type === "planted") return ["#E5DBC8", "#5A4221"];
+  if (type === "dead") return ["#D6D6D6", "#2A2A2A"];
+  if (type === "needs_water") return ["#FFF4D6", "#9C7008"];
+  return ["var(--secondary-background-color)", "var(--primary-text-color)"];
 };
 
 // Color mapping for planner cell dots — keeps sync with the legend
 const PLANNER_EVENT_COLORS = {
-  watered:        "#5DCAA5",
-  rain_detected:  "#9FE1CB",
-  fertilized:     "#C0DD97",
-  frost_alert:    "#E24B4A",
-  snow:           "#A8C8DD",
-  pest_spotted:   "#D4A04A",
-  pest:           "#D4A04A",
-  harvested:      "#E0A547",
-  sprouted:       "#7BC453",
-  transplanted:   "#1D9E75",
-  planted:        "#8B6F47",
-  dead:           "#4A4A4A",
-  needs_water:    "#E0B23C",
-  other:          "#B0B0B0",
+  watered: "#5DCAA5",
+  rain_detected: "#9FE1CB",
+  fertilized: "#C0DD97",
+  frost_alert: "#E24B4A",
+  snow: "#A8C8DD",
+  pest_spotted: "#D4A04A",
+  pest: "#D4A04A",
+  harvested: "#E0A547",
+  sprouted: "#7BC453",
+  transplanted: "#1D9E75",
+  planted: "#8B6F47",
+  dead: "#4A4A4A",
+  needs_water: "#E0B23C",
+  other: "#B0B0B0",
 };
 
 // Human-readable event names used by the day-detail overlay & legend
@@ -142,20 +142,20 @@ const SEASON_ICON = { winter: "❄", spring: "💧", summer: "☀", fall: "🍂"
 const plantEmoji = type => {
   if (!type) return "🌱";
   const t = type.toLowerCase();
-  if (t.includes("tomato"))     return "🍅";
-  if (t.includes("carrot"))     return "🥕";
-  if (t.includes("broccoli"))   return "🥦";
-  if (t.includes("lettuce"))    return "🥬";
-  if (t.includes("pepper"))     return "🌶️";
-  if (t.includes("cucumber"))   return "🥒";
-  if (t.includes("bean"))       return "🫘";
-  if (t.includes("potato"))     return "🥔";
-  if (t.includes("onion"))      return "🧅";
-  if (t.includes("garlic"))     return "🧄";
-  if (t.includes("corn"))       return "🌽";
+  if (t.includes("tomato")) return "🍅";
+  if (t.includes("carrot")) return "🥕";
+  if (t.includes("broccoli")) return "🥦";
+  if (t.includes("lettuce")) return "🥬";
+  if (t.includes("pepper")) return "🌶️";
+  if (t.includes("cucumber")) return "🥒";
+  if (t.includes("bean")) return "🫘";
+  if (t.includes("potato")) return "🥔";
+  if (t.includes("onion")) return "🧅";
+  if (t.includes("garlic")) return "🧄";
+  if (t.includes("corn")) return "🌽";
   if (t.includes("strawberry")) return "🍓";
   if (t.includes("squash") || t.includes("pumpkin")) return "🎃";
-  if (t.includes("basil") || t.includes("herb"))     return "🌿";
+  if (t.includes("basil") || t.includes("herb")) return "🌿";
   return "🌱";
 };
 
@@ -167,9 +167,9 @@ const stageBadge = p => {
   const days = p.days_growing || 0;
   const start = p.start_type === "transplant" ? "Transplant" : "Seed";
   const label = `${start} · Day ${days}`;
-  return days < 7  ? [label, "#FAEEDA", "#854F0B"]
-       : days < 21 ? [label, "#EAF3DE", "#3B6D11"]
-       :             [label, "#E1F5EE", "#0F6E56"];
+  return days < 7 ? [label, "#FAEEDA", "#854F0B"]
+    : days < 21 ? [label, "#EAF3DE", "#3B6D11"]
+      : [label, "#E1F5EE", "#0F6E56"];
 };
 
 // Compute the visual water-status badge for the main-view plant list.
@@ -190,17 +190,17 @@ const plantWaterStatus = p => {
   const source = p.last_water_source || null;
   let badge = "";
   if (overdue) {
-    badge = `<span class="plant-status-badge plant-status-needs" title="Needs water — ${ds} day${ds===1?"":"s"} since last watered (threshold ${threshold})">💧</span>`;
+    badge = `<span class="plant-status-badge plant-status-needs" title="Needs water — ${ds} day${ds === 1 ? "" : "s"} since last watered (threshold ${threshold})">💧</span>`;
   } else if (source === "rain") {
     // Show a small raindrop when the most recent watering was from rain —
     // gives the user reassurance that nature has been doing the work.
-    badge = `<span class="plant-status-badge plant-status-rain" title="Last watered by rain ${ds!=null ? `(${ds} day${ds===1?"":"s"} ago)` : ""}">🌧</span>`;
+    badge = `<span class="plant-status-badge plant-status-rain" title="Last watered by rain ${ds != null ? `(${ds} day${ds === 1 ? "" : "s"} ago)` : ""}">🌧</span>`;
   }
   return { badge, overdue, source };
 };
 
 // Health colour. Now species-aware: uses each plant's `watering_min_days`
-// (parsed from Perenual's watering_general_benchmark.value) as the threshold
+// (parsed from Verdantly's watering_general_benchmark.value) as the threshold
 // for "needs water". Falls back to a generic 3-day default if not set.
 //   - blue:   plant scheduled (start date in the future)
 //   - green:  recently watered (or rained), nothing due
@@ -212,7 +212,7 @@ const healthColor = p => {
   if (ds == null) return "#639922";  // never watered, but don't alarm
   const threshold = p.watering_min_days || 3;
   if (ds >= threshold + 1) return "#BA7517";  // overdue (orange)
-  if (ds >= threshold)     return "#D4A04A";  // due today (yellow)
+  if (ds >= threshold) return "#D4A04A";  // due today (yellow)
   return "#639922";  // healthy (green)
 };
 
@@ -1250,7 +1250,7 @@ class AgribudCard extends HTMLElement {
     this._initialized = false;
     // Navigation state — main / plot:<id> / plant:<id>
     this._view = "main";
-    this._activePlot  = null;
+    this._activePlot = null;
     this._activePlant = null;
     // Cached data
     this._plotsCache = null;       // last-fetched grow plots from /plots
@@ -1289,7 +1289,7 @@ class AgribudCard extends HTMLElement {
         this._themePref = "default";
         window.localStorage.setItem("agribud:theme", "default");
       }
-    } catch (e) {}
+    } catch (e) { }
     // Bus event subscription
     this._busUnsub = null;
   }
@@ -1307,7 +1307,7 @@ class AgribudCard extends HTMLElement {
   _setLayoutPref(pref) {
     if (!["auto", "portrait", "landscape"].includes(pref)) return;
     this._layoutPref = pref;
-    try { window.localStorage.setItem("agribud:layout", pref); } catch (e) {}
+    try { window.localStorage.setItem("agribud:layout", pref); } catch (e) { }
     this._applyLayoutClass();
   }
 
@@ -1326,7 +1326,7 @@ class AgribudCard extends HTMLElement {
   _setThemePref(pref) {
     if (!["ha", "default"].includes(pref)) return;
     this._themePref = pref;
-    try { window.localStorage.setItem("agribud:theme", pref); } catch (e) {}
+    try { window.localStorage.setItem("agribud:theme", pref); } catch (e) { }
     this._applyThemeClass();
   }
 
@@ -1379,14 +1379,14 @@ class AgribudCard extends HTMLElement {
       // user's default state without waiting for them to open Settings first.
       this._apiFetch("/status")
         .then(({ data }) => { this._apiStatusCache = data; })
-        .catch(() => {});
+        .catch(() => { });
     } else {
       this._updateLive();
     }
   }
 
   disconnectedCallback() {
-    if (this._busUnsub) { try { this._busUnsub(); } catch(e){} this._busUnsub = null; }
+    if (this._busUnsub) { try { this._busUnsub(); } catch (e) { } this._busUnsub = null; }
   }
 
   _el(id) { return this.shadowRoot.getElementById(id); }
@@ -1459,7 +1459,7 @@ class AgribudCard extends HTMLElement {
       },
       `${DOMAIN}_data_changed`,
     ).then(unsub => { this._busUnsub = unsub; })
-     .catch(err => console.warn("Agribud: failed to subscribe to data_changed events:", err));
+      .catch(err => console.warn("Agribud: failed to subscribe to data_changed events:", err));
   }
 
   /* ── Toast ─────────────────────────────────────────────────────────────── */
@@ -1481,9 +1481,9 @@ class AgribudCard extends HTMLElement {
     stack.appendChild(el);
     setTimeout(() => { if (el.parentNode) el.remove(); }, dur);
   }
-  _err(t, m)  { this._toast("error",   t, m); }
-  _ok(m)      { this._toast("success", "Done", m, 4000); }
-  _info(t, m) { this._toast("info",    t, m, 6000); }
+  _err(t, m) { this._toast("error", t, m); }
+  _ok(m) { this._toast("success", "Done", m, 4000); }
+  _info(t, m) { this._toast("info", t, m, 6000); }
 
   /* ── Plots + weather log fetching ──────────────────────────────────────── */
 
@@ -1581,7 +1581,7 @@ class AgribudCard extends HTMLElement {
 
   _tplMainView() {
     const weather = this._readWeatherSnapshot();
-    const plants  = this._allPlants();
+    const plants = this._allPlants();
     const thirstyPlants = plants.filter(needsWater);
     const needWater = thirstyPlants.length;
     const plots = this._plotsCache || [];
@@ -1595,8 +1595,8 @@ class AgribudCard extends HTMLElement {
           <div class="alert-banner-body">
             <span class="alert-banner-icon">💧</span>
             <div class="alert-banner-text">
-              <div class="alert-banner-title">${needWater} plant${needWater===1?"":"s"} need watering</div>
-              <div class="alert-banner-sub">${this._esc(thirstyPlants.slice(0,3).map(p => p.plant_name || p.name || "?").join(" · "))}${thirstyPlants.length>3?` +${thirstyPlants.length-3} more`:""}</div>
+              <div class="alert-banner-title">${needWater} plant${needWater === 1 ? "" : "s"} need watering</div>
+              <div class="alert-banner-sub">${this._esc(thirstyPlants.slice(0, 3).map(p => p.plant_name || p.name || "?").join(" · "))}${thirstyPlants.length > 3 ? ` +${thirstyPlants.length - 3} more` : ""}</div>
             </div>
           </div>
           <button class="alert-banner-dismiss" id="dismiss-alert-btn">Dismiss</button>
@@ -1629,8 +1629,8 @@ class AgribudCard extends HTMLElement {
       <div class="sec-title">
         <span>Growth planner</span>
         <div class="planner-controls">
-          <button class="planner-tab ${this._plannerScale==='week'?'active':''}" data-scale="week">Week</button>
-          <button class="planner-tab ${this._plannerScale==='season'?'active':''}" data-scale="season">Season</button>
+          <button class="planner-tab ${this._plannerScale === 'week' ? 'active' : ''}" data-scale="week">Week</button>
+          <button class="planner-tab ${this._plannerScale === 'season' ? 'active' : ''}" data-scale="season">Season</button>
         </div>
       </div>
       ${this._tplPlanner(plants, weather)}
@@ -1639,8 +1639,8 @@ class AgribudCard extends HTMLElement {
       <div class="sec-title">
         <span>Plants</span>
         ${plants.length > 5
-          ? `<span style="font-size:11px;color:var(--secondary-text-color);font-weight:400">${plants.length} total · scroll for more</span>`
-          : ""}
+        ? `<span style="font-size:11px;color:var(--secondary-text-color);font-weight:400">${plants.length} total · scroll for more</span>`
+        : ""}
       </div>
       <div class="plants-scroll">${this._tplPlantTable(plants)}</div>
 
@@ -1652,18 +1652,18 @@ class AgribudCard extends HTMLElement {
       <div class="plot-strip-wrap">
         <div class="plot-strip">
           ${this._plotsCache === null
-            // Initial-load skeleton: a couple of muted placeholder tiles so
-            // the section doesn't look empty while the fetch is in flight.
-            ? `<div class="plot-card plot-card-skeleton"></div>
+        // Initial-load skeleton: a couple of muted placeholder tiles so
+        // the section doesn't look empty while the fetch is in flight.
+        ? `<div class="plot-card plot-card-skeleton"></div>
                <div class="plot-card plot-card-skeleton"></div>`
-            : plots.map(p => `
+        : plots.map(p => `
                 <div class="plot-card" data-plot-id="${p.id}">
                   <div class="plot-card-name">📍 ${this._esc(p.name)}</div>
-                  <div class="plot-card-count">${p.plant_count || 0} plant${p.plant_count===1?"":"s"}</div>
+                  <div class="plot-card-count">${p.plant_count || 0} plant${p.plant_count === 1 ? "" : "s"}</div>
                   ${p.description ? `<div class="plot-card-desc">${this._esc(p.description)}</div>` : ""}
                 </div>
               `).join("")
-          }
+      }
           <div class="plot-card plot-card-add" id="add-plot-btn">
             <div style="font-size:24px;margin-bottom:4px">+</div>
             <div style="font-size:12px">Add grow plot</div>
@@ -1844,35 +1844,35 @@ class AgribudCard extends HTMLElement {
         </tr></thead>
         <tbody>
           ${plants.map(p => {
-            const [label, bg, color] = stageBadge(p);
-            // Status indicator: 💧 if needs water (manual was the most recent
-            // source), 🌧 if last watering came from rain, ✓ otherwise. Placed
-            // next to the icon so users can see at a glance which plants
-            // need attention without opening each card.
-            const status = plantWaterStatus(p);
-            const thumbInner = p.image_url
-              ? `<img src="${p.image_url}" style="width:28px;height:28px;border-radius:4px;object-fit:cover" loading="lazy">`
-              : `<span style="font-size:22px;line-height:1">${plantEmoji(p.plant_name || p.name)}</span>`;
-            const thumb = `<div class="plant-icon-wrap">
+      const [label, bg, color] = stageBadge(p);
+      // Status indicator: 💧 if needs water (manual was the most recent
+      // source), 🌧 if last watering came from rain, ✓ otherwise. Placed
+      // next to the icon so users can see at a glance which plants
+      // need attention without opening each card.
+      const status = plantWaterStatus(p);
+      const thumbInner = p.image_url
+        ? `<img src="${p.image_url}" style="width:28px;height:28px;border-radius:4px;object-fit:cover" loading="lazy">`
+        : `<span style="font-size:22px;line-height:1">${plantEmoji(p.plant_name || p.name)}</span>`;
+      const thumb = `<div class="plant-icon-wrap">
               ${thumbInner}
               ${status.badge}
             </div>`;
-            const pid = p.plant_id || p.id;
-            const harvestSeason = p.harvest_season ||
-                                  ((p.species_data || {}).harvest_season);
-            const harvestDisp = harvestSeason
-              ? this._esc(String(harvestSeason))
-              : `<span style="opacity:.6">Not available</span>`;
-            // Need-watered cell: show the days-since count colored red when
-            // the plant is overdue, with a 🌧 indicator if the last water
-            // event came from rain so the user knows nature did the watering.
-            const dsw = p.days_since_watered;
-            const wcell = dsw == null
-              ? `<span style="opacity:.6">—</span>`
-              : (status.overdue
-                  ? `<span style="color:#993C1D;font-weight:600">${daysAgo(dsw)}</span>`
-                  : daysAgo(dsw));
-            return `
+      const pid = p.plant_id || p.id;
+      const harvestSeason = p.harvest_season ||
+        ((p.species_data || {}).harvest_season);
+      const harvestDisp = harvestSeason
+        ? this._esc(String(harvestSeason))
+        : `<span style="opacity:.6">Not available</span>`;
+      // Need-watered cell: show the days-since count colored red when
+      // the plant is overdue, with a 🌧 indicator if the last water
+      // event came from rain so the user knows nature did the watering.
+      const dsw = p.days_since_watered;
+      const wcell = dsw == null
+        ? `<span style="opacity:.6">—</span>`
+        : (status.overdue
+          ? `<span style="color:#993C1D;font-weight:600">${daysAgo(dsw)}</span>`
+          : daysAgo(dsw));
+      return `
               <tr class="plant-row" data-pid="${pid}">
                 <td>
                   <div class="plant-name-cell">${thumb}
@@ -1888,7 +1888,7 @@ class AgribudCard extends HTMLElement {
                 <td class="plant-table-meta" data-label="Fertilized">${daysAgo(p.days_since_fertilized)}</td>
                 <td class="chev">›</td>
               </tr>`;
-          }).join("")}
+    }).join("")}
         </tbody>
       </table>`;
   }
@@ -1903,8 +1903,8 @@ class AgribudCard extends HTMLElement {
 
   _tplPills(w) {
     let out = "";
-    if (w.rainToday)  out += `<span class="pill"><span class="dot" style="background:#378ADD"></span>Rain today</span>`;
-    if (w.frostRisk)  out += `<span class="pill"><span class="dot" style="background:#E24B4A"></span>Frost risk tonight</span>`;
+    if (w.rainToday) out += `<span class="pill"><span class="dot" style="background:#378ADD"></span>Rain today</span>`;
+    if (w.frostRisk) out += `<span class="pill"><span class="dot" style="background:#E24B4A"></span>Frost risk tonight</span>`;
     return out ? `<div class="pills">${out}</div>` : "";
   }
 
@@ -1917,20 +1917,20 @@ class AgribudCard extends HTMLElement {
     // Frost / rain from Agribud sensors
     const frostS = Object.values(this._hass.states).find(
       s => s.entity_id?.startsWith("binary_sensor.agribud_frost_risk") &&
-           !(s.attributes || {}).plant_name
+        !(s.attributes || {}).plant_name
     );
     const rainS = Object.values(this._hass.states).find(
       s => s.entity_id?.startsWith("binary_sensor.agribud_rain_today")
     );
     return {
-      temperature:     a.temperature,
+      temperature: a.temperature,
       temperature_unit: a.temperature_unit,
-      humidity:        a.humidity,
-      humidity_unit:   "%",
-      condition:       state.state,
-      weather_entity:  entityId,
-      frostRisk:       frostS?.state === "on",
-      rainToday:       rainS?.state === "on",
+      humidity: a.humidity,
+      humidity_unit: "%",
+      condition: state.state,
+      weather_entity: entityId,
+      frostRisk: frostS?.state === "on",
+      rainToday: rainS?.state === "on",
     };
   }
 
@@ -1948,7 +1948,7 @@ class AgribudCard extends HTMLElement {
 
   _esc(s) {
     return String(s ?? "").replace(/[&<>"']/g, c => ({
-      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;",
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
     }[c]));
   }
 
@@ -2030,10 +2030,10 @@ class AgribudCard extends HTMLElement {
 
   _tplPlannerWeek(plants, view, today) {
     const todayKey = today.toISOString().slice(0, 10);
-    const dayLbls = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+    const dayLbls = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const hdrs = dayLbls.map((l, i) => {
-      const isToday = view.days[i].toISOString().slice(0,10) === todayKey;
-      return `<div class="planner-hdr${isToday?' today':''}">${l} <span style="opacity:.5">${view.days[i].getDate()}</span></div>`;
+      const isToday = view.days[i].toISOString().slice(0, 10) === todayKey;
+      return `<div class="planner-hdr${isToday ? ' today' : ''}">${l} <span style="opacity:.5">${view.days[i].getDate()}</span></div>`;
     }).join("");
 
     if (!plants.length) {
@@ -2048,8 +2048,8 @@ class AgribudCard extends HTMLElement {
         const ev = evts.find(e => e.date === ds);
         const dot = ev ? this._evMarker(ev) : "";
         const isFuture = d > today;
-        const isToday  = ds === todayKey;
-        return `<div class="plan-cell${isToday?' today':''}${isFuture?' future':''}">${dot}</div>`;
+        const isToday = ds === todayKey;
+        return `<div class="plan-cell${isToday ? ' today' : ''}${isFuture ? ' future' : ''}">${dot}</div>`;
       }).join("");
       return this._plannerRowFor(p, cellHtml);
     }).join("");
@@ -2083,16 +2083,16 @@ class AgribudCard extends HTMLElement {
     let startISO, endISO;
     if (season === "winter") {
       startISO = `${year}-12-21`;
-      endISO   = `${year + 1}-03-20`;
+      endISO = `${year + 1}-03-20`;
     } else if (season === "spring") {
       startISO = `${year}-03-21`;
-      endISO   = `${year}-06-20`;
+      endISO = `${year}-06-20`;
     } else if (season === "summer") {
       startISO = `${year}-06-21`;
-      endISO   = `${year}-09-21`;
+      endISO = `${year}-09-21`;
     } else {
       startISO = `${year}-09-22`;
-      endISO   = `${year}-12-20`;
+      endISO = `${year}-12-20`;
     }
     const label = `${season.charAt(0).toUpperCase()}${season.slice(1)} ${year}`;
     return { season, year, startISO, endISO, label };
@@ -2125,10 +2125,10 @@ class AgribudCard extends HTMLElement {
       const startDisp = isoDisp(p.start_date);
       // End-status pill: matches the sensor enum + adds "removed" + "growing"
       const STATUS = {
-        growing:    { label: "Growing",   bg: "#E1F5EE", color: "#0F6E56" },
-        harvested:  { label: "Harvested", bg: "#EAEAEA", color: "#5F5E5A" },
-        dead:       { label: "Dead",      bg: "#D6D6D6", color: "#2A2A2A" },
-        removed:    { label: "Removed",   bg: "#F4ECE2", color: "#7A6230" },
+        growing: { label: "Growing", bg: "#E1F5EE", color: "#0F6E56" },
+        harvested: { label: "Harvested", bg: "#EAEAEA", color: "#5F5E5A" },
+        dead: { label: "Dead", bg: "#D6D6D6", color: "#2A2A2A" },
+        removed: { label: "Removed", bg: "#F4ECE2", color: "#7A6230" },
       };
       const sInfo = STATUS[p.end_status] || STATUS.growing;
       const endDisp = p.end_date
@@ -2138,7 +2138,7 @@ class AgribudCard extends HTMLElement {
         ? ` <span class="season-archived-tag" title="6+ months old — species data no longer cached">history only</span>`
         : "";
       return `
-        <div class="season-plant-card" data-pid="${this._esc(p.id)}" data-archived="${p.archived?'1':'0'}">
+        <div class="season-plant-card" data-pid="${this._esc(p.id)}" data-archived="${p.archived ? '1' : '0'}">
           <div class="season-plant-name">${this._esc(p.name || "Unnamed")}${archivedNote}</div>
           <div class="season-plant-meta">
             <span class="season-plant-date">📅 Started ${startDisp}</span>
@@ -2183,7 +2183,7 @@ class AgribudCard extends HTMLElement {
   }
 
   // Returns the persisted event list for a plant. We no longer synthesize
-  // harvest projections — Perenual doesn't expose days_to_harvest, so harvest
+  // harvest projections — Verdantly doesn't expose days_to_harvest, so harvest
   // info is shown as a season string in the plant table and Tips, not as a
   // calendar event.
   _eventsWithProjections(p) {
@@ -2232,9 +2232,9 @@ class AgribudCard extends HTMLElement {
     this._el("save-evt-btn").onclick = () => this._saveEvent();
     this._el("save-ps-btn").onclick = () => this._savePlantSettings();
     this._el("remove-plant-btn").onclick = () => this._removePlant();
-    const saveOvBtn  = this._el("save-ov-btn");
+    const saveOvBtn = this._el("save-ov-btn");
     const clearOvBtn = this._el("clear-ov-btn");
-    if (saveOvBtn)  saveOvBtn.onclick  = () => this._saveOverrides();
+    if (saveOvBtn) saveOvBtn.onclick = () => this._saveOverrides();
     if (clearOvBtn) clearOvBtn.onclick = () => this._clearOverrides();
     const ed = this._el("evt-date"); if (ed) ed.value = new Date().toISOString().slice(0, 10);
 
@@ -2266,7 +2266,7 @@ class AgribudCard extends HTMLElement {
     this._el("day-overlay").onclick = e => { if (e.target.id === "day-overlay") this._close("day-overlay"); };
   }
 
-  _open(id)  { this._el(id)?.classList.add("open"); }
+  _open(id) { this._el(id)?.classList.add("open"); }
   _close(id) { this._el(id)?.classList.remove("open"); }
 
   /* ── Plant detail ──────────────────────────────────────────────────────── */
@@ -2504,10 +2504,10 @@ class AgribudCard extends HTMLElement {
     const plant = all.find(p => p.id === pid);
     if (!plant) return;
     const STATUS = {
-      growing:    { label: "Growing",   bg: "#E1F5EE", color: "#0F6E56" },
-      harvested:  { label: "Harvested", bg: "#EAEAEA", color: "#5F5E5A" },
-      dead:       { label: "Dead",      bg: "#D6D6D6", color: "#2A2A2A" },
-      removed:    { label: "Removed",   bg: "#F4ECE2", color: "#7A6230" },
+      growing: { label: "Growing", bg: "#E1F5EE", color: "#0F6E56" },
+      harvested: { label: "Harvested", bg: "#EAEAEA", color: "#5F5E5A" },
+      dead: { label: "Dead", bg: "#D6D6D6", color: "#2A2A2A" },
+      removed: { label: "Removed", bg: "#F4ECE2", color: "#7A6230" },
     };
     const sInfo = STATUS[plant.end_status] || STATUS.growing;
     const events = (plant.events || []).slice().sort(
@@ -2587,8 +2587,8 @@ class AgribudCard extends HTMLElement {
       // Reset all status classes, apply the current one
       pillEl.classList.remove(
         "tcm-status-healthy", "tcm-status-thirsty",
-        "tcm-status-danger",  "tcm-status-harvested",
-        "tcm-status-dead",    "tcm-status-scheduled",
+        "tcm-status-danger", "tcm-status-harvested",
+        "tcm-status-dead", "tcm-status-scheduled",
       );
       pillEl.classList.add(`tcm-status-${statusInfo.state}`);
       pillText.textContent = statusInfo.label;
@@ -2619,11 +2619,11 @@ class AgribudCard extends HTMLElement {
     this._el("tc-sci-name").textContent = plant.scientific_name || "";
 
     // ── Details panel: field grid ─────────────────────────────────────
-    this._el("tc-soil-pref").textContent     = v(plant.soil_preference);
-    this._el("tc-spacing").textContent       = v(plant.spacing_requirement);
+    this._el("tc-soil-pref").textContent = v(plant.soil_preference);
+    this._el("tc-spacing").textContent = v(plant.spacing_requirement);
     this._el("tc-growth-period").textContent = v(plant.growth_period);
-    this._el("tc-ph-range").textContent      = v(plant.soil_ph_range);
-    this._el("tc-hardiness").textContent     = v(plant.hardiness_zone_range);
+    this._el("tc-ph-range").textContent = v(plant.soil_ph_range);
+    this._el("tc-hardiness").textContent = v(plant.hardiness_zone_range);
     // Toxicity: backend filters out "non-toxic"/"mild" entries and returns
     // "Non-toxic" when nothing concerning is left. We only apply the red
     // warning color when there's an actual concerning level — "Non-toxic"
@@ -2636,7 +2636,7 @@ class AgribudCard extends HTMLElement {
     } else {
       toxEl.classList.add("tcm-kv-value-warn");
     }
-    this._el("tc-harvest").textContent       = v(plant.harvest_range);
+    this._el("tc-harvest").textContent = v(plant.harvest_range);
 
     // Water schedule (numeric min..max days, what automations key off of)
     const wMin = plant.watering_min_days;
@@ -2669,8 +2669,8 @@ class AgribudCard extends HTMLElement {
       dsEl.textContent = dash;
     } else {
       const dayLabel = dsw === 0 ? "Today" :
-                       dsw === 1 ? "1 day" :
-                       `${dsw} days`;
+        dsw === 1 ? "1 day" :
+          `${dsw} days`;
       const sourceTag = plant.last_water_source === "rain" ? " (rain)" : "";
       dsEl.textContent = `${dayLabel}${sourceTag}`;
       if (dsw >= threshold) {
@@ -2777,23 +2777,23 @@ class AgribudCard extends HTMLElement {
       const el = this._el(id);
       if (el) el.value = (val == null) ? "" : String(val);
     };
-    set("ov-common-name",       ov.common_name);
-    set("ov-scientific-name",   ov.scientific_name);
-    set("ov-light",             ov.light_requirements);
-    set("ov-water-use",         ov.water_use);
-    set("ov-water-min",         ov.watering_min_days);
-    set("ov-water-max",         ov.watering_max_days);
-    set("ov-soil-pref",         ov.soil_preference);
-    set("ov-spacing",           ov.spacing_requirement);
-    set("ov-growth-period",     ov.growth_period);
-    set("ov-ph-min",            ov.soil_ph_min);
-    set("ov-ph-max",            ov.soil_ph_max);
-    set("ov-zone-min",          ov.hardiness_zone_min);
-    set("ov-zone-max",          ov.hardiness_zone_max);
-    set("ov-harvest-min",       ov.days_to_harvest_min);
-    set("ov-harvest-max",       ov.days_to_harvest_max);
-    set("ov-image-url",         ov.image_url);
-    set("ov-care",              ov.care_instructions);
+    set("ov-common-name", ov.common_name);
+    set("ov-scientific-name", ov.scientific_name);
+    set("ov-light", ov.light_requirements);
+    set("ov-water-use", ov.water_use);
+    set("ov-water-min", ov.watering_min_days);
+    set("ov-water-max", ov.watering_max_days);
+    set("ov-soil-pref", ov.soil_preference);
+    set("ov-spacing", ov.spacing_requirement);
+    set("ov-growth-period", ov.growth_period);
+    set("ov-ph-min", ov.soil_ph_min);
+    set("ov-ph-max", ov.soil_ph_max);
+    set("ov-zone-min", ov.hardiness_zone_min);
+    set("ov-zone-max", ov.hardiness_zone_max);
+    set("ov-harvest-min", ov.days_to_harvest_min);
+    set("ov-harvest-max", ov.days_to_harvest_max);
+    set("ov-image-url", ov.image_url);
+    set("ov-care", ov.care_instructions);
     // Invasive select — special handling since it's a tri-state (set/unset/false)
     const invEl = this._el("ov-invasive");
     if (invEl) {
@@ -2814,7 +2814,7 @@ class AgribudCard extends HTMLElement {
 
   _renderHistory(plant) {
     // Persisted events only — there's no estimated_harvest synthesis since we
-    // dropped days_to_harvest with the Perenual migration.
+    // dropped days_to_harvest with the Verdantly migration.
     const evts = this._eventsWithProjections(plant)
       .slice()
       .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
@@ -2826,7 +2826,7 @@ class AgribudCard extends HTMLElement {
       html += evts.map(ev => {
         const [bg, tc] = evColors(ev.type);
         const lbl = EVENT_LABELS[ev.type]
-          || ev.type.replace(/_/g," ").replace(/\b\w/g, c => c.toUpperCase());
+          || ev.type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
         const eventId = ev.id || "";
         const metaSuffix = ev.auto ? "Auto logged" : "Manual";
         return `<div class="ev-item">
@@ -2893,19 +2893,19 @@ class AgribudCard extends HTMLElement {
   _savePlantSettings() {
     if (!this._activePlant) return;
     const pid = this._activePlant.plant_id || this._activePlant.id;
-    const name  = (this._el("ps-name")?.value      || "").trim();
+    const name = (this._el("ps-name")?.value || "").trim();
     const stype = this._el("ps-start-type")?.value || "seed";
     const sdate = this._el("ps-start-date")?.value || "";
-    const loc   = (this._el("ps-location")?.value  || "").trim();
+    const loc = (this._el("ps-location")?.value || "").trim();
     if (!name) {
       this._err("Name required", "Display name cannot be empty.");
       return;
     }
     const data = {
-      plant_id:   pid,
+      plant_id: pid,
       plant_name: name,
       start_type: stype,
-      location:   loc,
+      location: loc,
     };
     // Only include start_date if non-empty — sending "" trips date schema.
     if (sdate) data.start_date = sdate;
@@ -2948,25 +2948,25 @@ class AgribudCard extends HTMLElement {
     // Invasive tri-state: "" = no override, "true"/"false" = override on/off
     const invRaw = v("ov-invasive");
     const overrides = {
-      common_name:         v("ov-common-name"),
-      scientific_name:     v("ov-scientific-name"),
-      light_requirements:  v("ov-light"),
-      water_use:           v("ov-water-use"),
-      watering_min_days:   intnum("ov-water-min"),
-      watering_max_days:   intnum("ov-water-max"),
-      soil_preference:     v("ov-soil-pref"),
+      common_name: v("ov-common-name"),
+      scientific_name: v("ov-scientific-name"),
+      light_requirements: v("ov-light"),
+      water_use: v("ov-water-use"),
+      watering_min_days: intnum("ov-water-min"),
+      watering_max_days: intnum("ov-water-max"),
+      soil_preference: v("ov-soil-pref"),
       spacing_requirement: v("ov-spacing"),
-      growth_period:       v("ov-growth-period"),
-      soil_ph_min:         num("ov-ph-min"),
-      soil_ph_max:         num("ov-ph-max"),
-      hardiness_zone_min:  v("ov-zone-min"),
-      hardiness_zone_max:  v("ov-zone-max"),
+      growth_period: v("ov-growth-period"),
+      soil_ph_min: num("ov-ph-min"),
+      soil_ph_max: num("ov-ph-max"),
+      hardiness_zone_min: v("ov-zone-min"),
+      hardiness_zone_max: v("ov-zone-max"),
       days_to_harvest_min: intnum("ov-harvest-min"),
       days_to_harvest_max: intnum("ov-harvest-max"),
-      care_instructions:   v("ov-care"),
-      image_url:           v("ov-image-url"),
+      care_instructions: v("ov-care"),
+      image_url: v("ov-image-url"),
     };
-    if (invRaw === "true")  overrides.invasive_alert = true;
+    if (invRaw === "true") overrides.invasive_alert = true;
     else if (invRaw === "false") overrides.invasive_alert = false;
     // empty string means "no override for invasive" — leave it out entirely
     // (sending "" would tell the backend to REMOVE the override which is fine
@@ -2976,19 +2976,19 @@ class AgribudCard extends HTMLElement {
 
     // Cross-field validation: min ≤ max for water + pH + harvest
     if (overrides.watering_min_days !== "" && overrides.watering_max_days !== ""
-        && overrides.watering_min_days > overrides.watering_max_days) {
+      && overrides.watering_min_days > overrides.watering_max_days) {
       this._err("Invalid water range",
         "Water min days must be less than or equal to max days.");
       return;
     }
     if (overrides.soil_ph_min !== "" && overrides.soil_ph_max !== ""
-        && overrides.soil_ph_min > overrides.soil_ph_max) {
+      && overrides.soil_ph_min > overrides.soil_ph_max) {
       this._err("Invalid pH range",
         "Soil pH min must be less than or equal to max.");
       return;
     }
     if (overrides.days_to_harvest_min !== "" && overrides.days_to_harvest_max !== ""
-        && overrides.days_to_harvest_min > overrides.days_to_harvest_max) {
+      && overrides.days_to_harvest_min > overrides.days_to_harvest_max) {
       this._err("Invalid harvest range",
         "Days-to-harvest min must be less than or equal to max.");
       return;
@@ -2997,7 +2997,7 @@ class AgribudCard extends HTMLElement {
     const btn = this._el("save-ov-btn");
     if (btn) { btn.textContent = "Saving…"; btn.disabled = true; }
     this._hass.callService(DOMAIN, "update_plant_overrides",
-                           { plant_id: pid, overrides })
+      { plant_id: pid, overrides })
       .then(async () => {
         this._ok("Plant details saved.");
         await this._fetchPlots();
@@ -3023,7 +3023,7 @@ class AgribudCard extends HTMLElement {
   _clearOverrides() {
     if (!this._activePlant) return;
     if (!confirm("Reset all overrides for this plant? "
-                 + "Display fields will revert to Verdantly's values.")) return;
+      + "Display fields will revert to Verdantly's values.")) return;
     const pid = this._activePlant.plant_id || this._activePlant.id;
     // Send every allowed-key field as an empty string so the backend removes
     // each one. The backend ignores unknown keys, so listing the full set
@@ -3041,7 +3041,7 @@ class AgribudCard extends HTMLElement {
       image_url: "",
     };
     this._hass.callService(DOMAIN, "update_plant_overrides",
-                           { plant_id: pid, overrides })
+      { plant_id: pid, overrides })
       .then(async () => {
         this._ok("Overrides cleared — using Verdantly values.");
         await this._fetchPlots();
@@ -3064,7 +3064,7 @@ class AgribudCard extends HTMLElement {
     this._hass.callService(DOMAIN, "log_event", { plant_id: pid, event_type: type, note, date })
       .then(async () => {
         if (this._el("evt-note")) this._el("evt-note").value = "";
-        this._ok(`${type.replace(/_/g," ")} logged.`);
+        this._ok(`${type.replace(/_/g, " ")} logged.`);
         // Refresh cache + popup history directly. This ensures the new event
         // appears immediately even if the integration's bus event isn't being
         // fired (e.g. running an older __init__.py).
@@ -3272,16 +3272,16 @@ class AgribudCard extends HTMLElement {
       const providerRaw = data.api_provider || "verdantly";
       // Pretty-print the provider name
       const provider = providerRaw === "verdantly" ? "Verdantly (RapidAPI)"
-                     : providerRaw === "apifarmer" ? "APIFarmer"
-                     : providerRaw.charAt(0).toUpperCase() + providerRaw.slice(1);
+        : providerRaw === "apifarmer" ? "APIFarmer"
+          : providerRaw.charAt(0).toUpperCase() + providerRaw.slice(1);
       // Build the usage warning row if the backend reports the counter.
       // Verdantly's free tier is 25 calls/month; warn at 20+ used.
       let usageRow = "";
       if (data.usage && typeof data.usage === "object") {
-        const used      = Number(data.usage.count)     || 0;
+        const used = Number(data.usage.count) || 0;
         const remaining = Number(data.usage.remaining) || 0;
-        const quota     = Number(data.usage.quota)     || 25;
-        const month     = data.usage.month || "this month";
+        const quota = Number(data.usage.quota) || 25;
+        const month = data.usage.month || "this month";
         let color = "var(--primary-text-color)";
         let warn = "";
         if (remaining <= 0) {
@@ -3301,11 +3301,11 @@ class AgribudCard extends HTMLElement {
         <span style="color:var(--secondary-text-color)">Provider:</span>
         <span>${this._esc(provider)}</span>
         <span style="color:var(--secondary-text-color)">API key:</span>
-        <span style="font-family:monospace;color:${ok?"#0F6E56":"#993C1D"}">${data.api_key_masked}</span>
+        <span style="font-family:monospace;color:${ok ? "#0F6E56" : "#993C1D"}">${data.api_key_masked}</span>
         <span style="color:var(--secondary-text-color)">Weather entity:</span>
         <span>${data.weather_entity}</span>
         <span style="color:var(--secondary-text-color)">API client:</span>
-        <span style="color:${ok?"#0F6E56":"#993C1D"};font-weight:600">${ok ? "✓ Ready" : "✗ Not loaded"}</span>${usageRow}
+        <span style="color:${ok ? "#0F6E56" : "#993C1D"};font-weight:600">${ok ? "✓ Ready" : "✗ Not loaded"}</span>${usageRow}
         <span style="color:var(--secondary-text-color)">Backend http_api:</span>
         <span style="font-family:monospace;font-size:11px">${data.http_api_version || "(missing — file is older than v1.1.1)"}</span>
       </div>`;
@@ -3320,7 +3320,7 @@ class AgribudCard extends HTMLElement {
   _setConn(ok, label) {
     const el = this._el("conn-status");
     if (!el) return;
-    el.className = `conn-status ${ok?"conn-ok":"conn-err"}`;
+    el.className = `conn-status ${ok ? "conn-ok" : "conn-err"}`;
     this._el("conn-dot").style.background = ok ? "#1D9E75" : "#993C1D";
     this._el("conn-label").textContent = label;
   }
@@ -3423,7 +3423,7 @@ class AgribudCard extends HTMLElement {
           ${thumb}
           <div class="water-row-info">
             <div class="water-row-name">${this._esc(p.plant_name || p.name)}</div>
-            <div class="water-row-meta">Last watered: ${daysAgo(p.days_since_watered)}${p.location?` · ${this._esc(p.location)}`:""}</div>
+            <div class="water-row-meta">Last watered: ${daysAgo(p.days_since_watered)}${p.location ? ` · ${this._esc(p.location)}` : ""}</div>
           </div>
           <div class="water-row-actions">
             <button class="btn btn-accent" data-water-pid="${pid}">💧 Water</button>
@@ -3443,7 +3443,7 @@ class AgribudCard extends HTMLElement {
 
   _quickWater(pid) {
     this._hass.callService(DOMAIN, "log_event", {
-      plant_id: pid, event_type: "watered", date: new Date().toISOString().slice(0,10),
+      plant_id: pid, event_type: "watered", date: new Date().toISOString().slice(0, 10),
     }).then(() => {
       this._ok("Watering logged.");
       // Bus event will trigger refresh; also update this list optimistically
@@ -3474,8 +3474,8 @@ class AgribudCard extends HTMLElement {
     if (!dateStr) return;
     const dateObj = new Date(dateStr + "T00:00:00");
     const titleEl = this._el("day-title");
-    const subEl   = this._el("day-sub");
-    const body    = this._el("day-body");
+    const subEl = this._el("day-sub");
+    const body = this._el("day-body");
     if (titleEl) titleEl.textContent = dateObj.toLocaleDateString("en-US", {
       weekday: "long", month: "long", day: "numeric",
     });
@@ -3544,7 +3544,7 @@ class AgribudCard extends HTMLElement {
     } else {
       body.innerHTML = plots.filter(p => p.plant_count).map(plot => `
         <div style="margin-bottom:18px">
-          <div style="font-size:13px;font-weight:600;margin-bottom:8px">📍 ${this._esc(plot.name)} · ${plot.plant_count} plant${plot.plant_count===1?"":"s"}</div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">📍 ${this._esc(plot.name)} · ${plot.plant_count} plant${plot.plant_count === 1 ? "" : "s"}</div>
           ${this._tplPlantTable(plot.plants || [])}
         </div>
       `).join("") || `<div class="no-items">No plants yet.</div>`;
@@ -3580,13 +3580,13 @@ class AgribudCard extends HTMLElement {
     let history = [];
     try {
       const end = new Date();
-      const start = new Date(end.getTime() - 24*3600*1000);
+      const start = new Date(end.getTime() - 24 * 3600 * 1000);
       const resp = await this._hass.callApi("GET",
         `history/period/${start.toISOString()}?filter_entity_id=${entityId}&end_time=${end.toISOString()}&minimal_response`
       );
       const series = (resp || [])[0] || [];
       history = series.map(p => ({ t: new Date(p.last_changed || p.last_updated), v: parseFloat(p.state) }))
-                      .filter(p => !isNaN(p.v));
+        .filter(p => !isNaN(p.v));
     } catch (e) {
       console.warn("Agribud: history fetch failed:", e);
     }
@@ -3601,11 +3601,11 @@ class AgribudCard extends HTMLElement {
       const min = Math.min(...vals), max = Math.max(...vals);
       const range = (max - min) || 1;
       const tMin = history[0].t.getTime();
-      const tMax = history[history.length-1].t.getTime();
+      const tMax = history[history.length - 1].t.getTime();
       const tRange = (tMax - tMin) || 1;
       const pts = history.map(p => {
-        const x = P + ((p.t.getTime() - tMin) / tRange) * (W - 2*P);
-        const y = H - P - ((p.v - min) / range) * (H - 2*P);
+        const x = P + ((p.t.getTime() - tMin) / tRange) * (W - 2 * P);
+        const y = H - P - ((p.v - min) / range) * (H - 2 * P);
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       }).join(" ");
       svg = `<svg class="sparkline-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
@@ -3691,7 +3691,7 @@ class AgribudCard extends HTMLElement {
     return `<div class="overlay open" id="add-plant-overlay"><div class="popup">
       <div class="popup-hdr">
         <div>
-          <div class="phdr-title" id="add-plant-hdr-title">Add a plant to ${this._esc(plotName||"this plot")}</div>
+          <div class="phdr-title" id="add-plant-hdr-title">Add a plant to ${this._esc(plotName || "this plot")}</div>
           <div class="phdr-sub">${plotName ? "Search the Verdantly plant database below" : ""}</div>
         </div>
         <button class="close-btn" id="close-add-btn">✕</button>
@@ -3754,9 +3754,9 @@ class AgribudCard extends HTMLElement {
               </select>
             </div>
             <div class="form-row"><span class="form-label">Planting date <span style="opacity:.7">(can be future)</span></span>
-              <input class="form-input" type="date" id="add-start-date" value="${new Date().toISOString().slice(0,10)}">
+              <input class="form-input" type="date" id="add-start-date" value="${new Date().toISOString().slice(0, 10)}">
             </div>
-            <button class="btn btn-accent btn-full" id="confirm-add-btn">Add plant to ${this._esc(plotName||"plot")}</button>
+            <button class="btn btn-accent btn-full" id="confirm-add-btn">Add plant to ${this._esc(plotName || "plot")}</button>
           </div>
         `}
       </div>
@@ -3771,11 +3771,11 @@ class AgribudCard extends HTMLElement {
     const nameIn = overlay.querySelector("#new-name");
     const searchBtn = overlay.querySelector("#search-btn");
     const spinWrap = overlay.querySelector("#search-spinner-wrap");
-    const resWrap  = overlay.querySelector("#search-results-wrap");
-    const resGrid  = overlay.querySelector("#search-results-grid");
-    const countEl  = overlay.querySelector("#search-count");
+    const resWrap = overlay.querySelector("#search-results-wrap");
+    const resGrid = overlay.querySelector("#search-results-grid");
+    const countEl = overlay.querySelector("#search-count");
     const stepSearch = overlay.querySelector("#add-step-search");
-    const stepForm   = overlay.querySelector("#add-step-form");
+    const stepForm = overlay.querySelector("#add-step-form");
 
     // ── Populate the "Recent plants" chip strip ───────────────────────────
     // Pull species_data from TWO sources, dedupe by scientific name:
@@ -3787,7 +3787,7 @@ class AgribudCard extends HTMLElement {
     // 25-calls-per-month free tier — a user who's grown tomatoes can keep
     // adding new tomato plants forever without burning calls.
     const recentSection = overlay.querySelector("#recent-plants-section");
-    const recentGrid    = overlay.querySelector("#recent-plants-grid");
+    const recentGrid = overlay.querySelector("#recent-plants-grid");
     if (recentSection && recentGrid) {
       const seen = new Map();  // sci/name key -> species_data
       // Source 1: active plants
@@ -3829,16 +3829,16 @@ class AgribudCard extends HTMLElement {
             const displayName = variety || sp.commonName || sp.scientificName || "";
             const result = {
               ...sd,
-              species_id:       sd.id || "",
-              id:               sd.id || "",
-              common_name:      displayName,
-              common_names:     displayName ? [displayName] : [],
-              variety_name:     variety,
-              scientific_name:  sp.scientificName || "",
-              image_url:        sd.imageUrl || null,
-              invasive_alert:   !!(sd.ecology && sd.ecology.isInvasive),
+              species_id: sd.id || "",
+              id: sd.id || "",
+              common_name: displayName,
+              common_names: displayName ? [displayName] : [],
+              variety_name: variety,
+              scientific_name: sp.scientificName || "",
+              image_url: sd.imageUrl || null,
+              invasive_alert: !!(sd.ecology && sd.ecology.isInvasive),
               light_requirements: (sd.growingRequirements || {}).sunlightRequirement || "",
-              water_use:        (sd.growingRequirements || {}).waterRequirement || "",
+              water_use: (sd.growingRequirements || {}).waterRequirement || "",
               hardiness_zone_min: (sd.growingRequirements || {}).minGrowingZone,
               hardiness_zone_max: (sd.growingRequirements || {}).maxGrowingZone,
             };
@@ -3879,8 +3879,8 @@ class AgribudCard extends HTMLElement {
         // Backend response shape: {results: [...], _testing_url: "...",
         // _from_cache: bool, _backend_version: "..."}
         const results = Array.isArray(data) ? data
-                      : Array.isArray(data?.results) ? data.results
-                      : [];
+          : Array.isArray(data?.results) ? data.results
+            : [];
         const backendVer = data && typeof data === "object" ? data._backend_version : null;
         // Silent diagnostic: warn (console only) if the backend version marker
         // is missing — that means http_api.py is stale and the user didn't
@@ -3898,7 +3898,7 @@ class AgribudCard extends HTMLElement {
             `<div class="sr-empty">No plants found for "${this._esc(q)}". Try a different common or scientific name.</div>`;
           resWrap.style.display = "block"; return;
         }
-        countEl.textContent = `${results.length} result${results.length!==1?"s":""}`;
+        countEl.textContent = `${results.length} result${results.length !== 1 ? "s" : ""}`;
         const cardsHtml = results.slice(0, 20).map((r, i) => {
           // Verdantly-shaped result. The normalizer surfaces common_name,
           // scientific_name, image_url, invasive_alert at top level. Variety
@@ -3925,7 +3925,7 @@ class AgribudCard extends HTMLElement {
         resGrid.innerHTML = cardsHtml;
         resWrap.style.display = "block";
         resGrid.querySelectorAll(".sr-card").forEach(card => {
-          card.onclick = () => this._selectSearchResult(results[parseInt(card.dataset.i,10)], overlay, stepSearch, stepForm);
+          card.onclick = () => this._selectSearchResult(results[parseInt(card.dataset.i, 10)], overlay, stepSearch, stepForm);
         });
       } catch (e) { spinWrap.style.display = "none"; this._err("Search failed", this._fmtErr(e, "agribud")); }
     };
@@ -4010,13 +4010,13 @@ class AgribudCard extends HTMLElement {
 
     // Build the info grid from the Verdantly fields per user spec
     const infoGrid = overlay.querySelector("#add-plant-info-grid");
-    const gr  = result.growingRequirements || {};
-    const gd  = result.growthDetails       || {};
-    const lm  = result.lifecycleMilestones || {};
-    const eco = result.ecology             || {};
+    const gr = result.growingRequirements || {};
+    const gd = result.growthDetails || {};
+    const lm = result.lifecycleMilestones || {};
+    const eco = result.ecology || {};
     const tox = (result.safety && result.safety.toxicity) || {};
-    const sp  = result.species             || {};
-    const tx  = sp.taxonomy                || {};
+    const sp = result.species || {};
+    const tx = sp.taxonomy || {};
     const cells = [];
 
     if (gr.sunlightRequirement)
@@ -4024,15 +4024,15 @@ class AgribudCard extends HTMLElement {
     if (gr.waterRequirement) {
       const wr = String(gr.waterRequirement).toLowerCase();
       let range = "";
-      if (wr === "low")                       range = " (every 7–14 days)";
+      if (wr === "low") range = " (every 7–14 days)";
       else if (wr === "moderate" || wr === "medium") range = " (every 3–7 days)";
-      else if (wr === "high")                 range = " (every 1–3 days)";
+      else if (wr === "high") range = " (every 1–3 days)";
       cells.push({ label: "💧 Water", value: `${gr.waterRequirement}${range}` });
     }
     if (gr.minGrowingZone != null || gr.maxGrowingZone != null) {
       const zMin = gr.minGrowingZone, zMax = gr.maxGrowingZone;
       const v = (zMin != null && zMax != null && zMin !== zMax) ? `${zMin}–${zMax}`
-              : (zMin != null ? `${zMin}` : `${zMax}`);
+        : (zMin != null ? `${zMin}` : `${zMax}`);
       cells.push({ label: "🗺 Hardiness", value: v });
     }
     if (gd.growthPeriod)
@@ -4050,7 +4050,7 @@ class AgribudCard extends HTMLElement {
     if (lm.daysToHarvestMin != null || lm.daysToHarvestMax != null) {
       const hMin = lm.daysToHarvestMin, hMax = lm.daysToHarvestMax;
       const v = (hMin != null && hMax != null && hMin !== hMax) ? `${hMin}–${hMax} days`
-              : (hMin != null ? `${hMin} days` : `${hMax} days`);
+        : (hMin != null ? `${hMin} days` : `${hMax} days`);
       cells.push({ label: "🌾 Harvest", value: v });
     }
     const toxKeys = Object.keys(tox);

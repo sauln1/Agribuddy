@@ -1,7 +1,7 @@
 """DataUpdateCoordinator for Agribud.
 
 Reads weather data from a HA weather entity. Does NOT auto-refresh species
-data from Perenual — that's fetched once when a plant is added and cached on
+data from Verdantly — that's fetched once when a plant is added and cached on
 the plant record.
 
 The 24h `update_interval` is a periodic safety net; the real-time work happens
@@ -14,24 +14,27 @@ weather entity changes state or attributes. That listener:
     that day (so days_since_watered resets and "needs water" indicators clear)
   - Fires the `agribud_data_changed` bus event so the card refreshes immediately
 """
+
 from __future__ import annotations
 
 import logging
 from datetime import date, timedelta
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant, Event, callback
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .api import PerenualApiClient
+from .api import VerdantlyApiClient
 from .const import (
     DOMAIN,
     DEFAULT_UPDATE_INTERVAL,
     DEFAULT_FROST_THRESHOLD_C,
     EVENT_FROST_ALERT,
 )
-from .store import PlantStore
+
+if TYPE_CHECKING:
+    from .store import PlantStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,13 +45,15 @@ class AgribudCoordinator(DataUpdateCoordinator):
     def __init__(
         self,
         hass: HomeAssistant,
-        api: PerenualApiClient,
+        api: VerdantlyApiClient,
         store: PlantStore,
         weather_entity: str,
         update_interval_minutes: int = DEFAULT_UPDATE_INTERVAL,
     ) -> None:
         super().__init__(
-            hass, _LOGGER, name=DOMAIN,
+            hass,
+            _LOGGER,
+            name=DOMAIN,
             update_interval=timedelta(minutes=update_interval_minutes),
         )
         self.api = api
@@ -63,7 +68,9 @@ class AgribudCoordinator(DataUpdateCoordinator):
         # between scheduled refreshes.
         if weather_entity:
             self._unsub_state_change = async_track_state_change_event(
-                hass, [weather_entity], self._on_weather_state_change,
+                hass,
+                [weather_entity],
+                self._on_weather_state_change,
             )
             _LOGGER.info(
                 "Agribud: subscribed to state changes for weather entity %s",
@@ -85,29 +92,41 @@ class AgribudCoordinator(DataUpdateCoordinator):
         if not weather:
             return
         today = date.today().isoformat()
-        rain  = self._check_rain(weather)
-        snow  = self._check_snow(weather)
+        rain = self._check_rain(weather)
+        snow = self._check_snow(weather)
         frost = self._check_frost(weather)
         condition = (weather.get("condition") or "").strip()
 
         _LOGGER.debug(
             "Agribud: weather state change — condition=%r precipitation=%r "
             "tonight_low=%r → rain=%s snow=%s frost=%s",
-            condition, weather.get("precipitation"),
-            weather.get("tonight_low"), rain, snow, frost,
+            condition,
+            weather.get("precipitation"),
+            weather.get("tonight_low"),
+            rain,
+            snow,
+            frost,
         )
 
         if rain or snow or frost or condition:
             changed = await self.store.async_record_weather(
-                date_str=today, rain=rain, snow=snow, frost=frost,
+                date_str=today,
+                rain=rain,
+                snow=snow,
+                frost=frost,
                 condition=condition,
             )
             if changed:
                 # Bus event so the card refreshes weather_log + plant data
                 self.hass.bus.async_fire(
                     f"{DOMAIN}_data_changed",
-                    {"kind": "weather_logged", "date": today,
-                     "rain": rain, "snow": snow, "frost": frost},
+                    {
+                        "kind": "weather_logged",
+                        "date": today,
+                        "rain": rain,
+                        "snow": snow,
+                        "frost": frost,
+                    },
                 )
 
         # Auto-log rain to every plant the first time we see rain today.
@@ -117,7 +136,8 @@ class AgribudCoordinator(DataUpdateCoordinator):
             _LOGGER.info(
                 "Agribud: rain detected (condition=%r, precip=%r) — auto-logging "
                 "rain event for all plants. days_since_watered will reset.",
-                condition, weather.get("precipitation"),
+                condition,
+                weather.get("precipitation"),
             )
             await self.store.async_log_rain_all(0.0)
             self._rain_logged_date = today
@@ -179,20 +199,20 @@ class AgribudCoordinator(DataUpdateCoordinator):
         if forecast:
             tonight_low = forecast[0].get("templow") or forecast[0].get("temperature")
         return {
-            "condition":     state.state,
-            "temperature":   attrs.get("temperature"),
-            "humidity":      attrs.get("humidity"),
-            "pressure":      attrs.get("pressure"),
-            "wind_speed":    attrs.get("wind_speed"),
+            "condition": state.state,
+            "temperature": attrs.get("temperature"),
+            "humidity": attrs.get("humidity"),
+            "pressure": attrs.get("pressure"),
+            "wind_speed": attrs.get("wind_speed"),
             "precipitation": attrs.get("precipitation"),
-            "forecast":      forecast,
-            "tonight_low":   tonight_low,
-            "entity_id":     self.weather_entity,
-            "temperature_unit":   attrs.get("temperature_unit"),
-            "wind_speed_unit":    attrs.get("wind_speed_unit"),
-            "pressure_unit":      attrs.get("pressure_unit"),
+            "forecast": forecast,
+            "tonight_low": tonight_low,
+            "entity_id": self.weather_entity,
+            "temperature_unit": attrs.get("temperature_unit"),
+            "wind_speed_unit": attrs.get("wind_speed_unit"),
+            "pressure_unit": attrs.get("pressure_unit"),
             "precipitation_unit": attrs.get("precipitation_unit"),
-            "humidity_unit":      "%",
+            "humidity_unit": "%",
         }
 
     @staticmethod
@@ -203,7 +223,7 @@ class AgribudCoordinator(DataUpdateCoordinator):
             return False
         try:
             return float(low) <= float(DEFAULT_FROST_THRESHOLD_C)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return False
 
     @staticmethod
@@ -221,11 +241,16 @@ class AgribudCoordinator(DataUpdateCoordinator):
             try:
                 if float(precip) > 0:
                     return True
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 pass
         cond = (weather.get("condition") or "").lower().replace("-", "_")
         rain_keywords = (
-            "rain", "drizzle", "shower", "thunder", "pour", "lightning_rainy",
+            "rain",
+            "drizzle",
+            "shower",
+            "thunder",
+            "pour",
+            "lightning_rainy",
         )
         if any(w in cond for w in rain_keywords):
             return True
@@ -259,10 +284,13 @@ class AgribudCoordinator(DataUpdateCoordinator):
             return
         # Also record the observation so the calendar shows the rain cloud icon
         await self.store.async_record_weather(
-            date_str=today, rain=True,
+            date_str=today,
+            rain=True,
             condition=(weather.get("condition") or "").strip(),
         )
-        _LOGGER.info("Agribud: auto-logging rain event for active plants (periodic refresh)")
+        _LOGGER.info(
+            "Agribud: auto-logging rain event for active plants (periodic refresh)"
+        )
         await self.store.async_log_rain_all(0.0)
         self._rain_logged_date = today
         self.hass.bus.async_fire(
@@ -276,15 +304,21 @@ class AgribudCoordinator(DataUpdateCoordinator):
         low = weather.get("tonight_low", "?")
         for plant in plants:
             await self.store.async_log_event(
-                plant["id"], EVENT_FROST_ALERT,
-                note=f"Overnight low forecast: {low}°C", auto=True,
+                plant["id"],
+                EVENT_FROST_ALERT,
+                note=f"Overnight low forecast: {low}°C",
+                auto=True,
             )
         self.hass.async_create_task(
-            self.hass.services.async_call("persistent_notification", "create", {
-                "title":           "Agribud — Frost Alert ❄️",
-                "message":         f"Frost risk tonight! Low: {low}°C. Check your plants.",
-                "notification_id": f"{DOMAIN}_frost_{today}",
-            })
+            self.hass.services.async_call(
+                "persistent_notification",
+                "create",
+                {
+                    "title": "Agribud — Frost Alert ❄️",
+                    "message": f"Frost risk tonight! Low: {low}°C. Check your plants.",
+                    "notification_id": f"{DOMAIN}_frost_{today}",
+                },
+            )
         )
         self._frost_alerted_date = today
         _LOGGER.warning("Agribud: frost alert fired (low: %s°C)", low)

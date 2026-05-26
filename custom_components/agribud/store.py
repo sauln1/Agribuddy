@@ -1,24 +1,25 @@
-"""Persistent plant + event storage for Agribud (Perenual edition).
+"""Persistent plant + event storage for Agribud (Verdantly edition).
 
 Plant record shape::
 
     {
         "id":            str (uuid),
         "name":          str,
-        "species_id":    int   — Perenual species id
+        "species_id":    int   — Verdantly species id
         "start_type":    "seed" | "transplant",
         "start_date":    "YYYY-MM-DD",
         "location":      str,
         "plot_id":       str | None,
         "events":        [ ... ],
-        "species_data":  dict — cached Perenual /species/details/<id> response
+        "species_data":  dict — cached Verdantly /species/details/<id> response
         "created_at":    ISO timestamp,
     }
 
 `species_data` is fetched once when the plant is added and never refreshed
 automatically — only on user action. Deleting the plant deletes the cache
-along with it. This minimises API usage per Perenual's free-tier 100/day cap.
+along with it. This minimises API usage per Verdantly's free-tier 100/day cap.
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,16 +30,25 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .const import (
-    STORAGE_KEY, STORAGE_VERSION,
-    EVENT_WATERED, EVENT_FERTILIZED, EVENT_RAIN_DETECTED, EVENT_PLANTED,
-    EVENT_HARVESTED, EVENT_DEAD,
+    STORAGE_KEY,
+    STORAGE_VERSION,
+    EVENT_WATERED,
+    EVENT_FERTILIZED,
+    EVENT_RAIN_DETECTED,
+    EVENT_PLANTED,
+    EVENT_HARVESTED,
+    EVENT_DEAD,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def _today() -> str: return date.today().isoformat()
-def _now() -> str:   return datetime.utcnow().isoformat()
+def _today() -> str:
+    return date.today().isoformat()
+
+
+def _now() -> str:
+    return datetime.utcnow().isoformat()
 
 
 def _days_since(iso: str | None) -> int | None:
@@ -48,7 +58,7 @@ def _days_since(iso: str | None) -> int | None:
         return None
     try:
         return (date.today() - date.fromisoformat(iso[:10])).days
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
 
 
@@ -56,7 +66,7 @@ def _watering_min_days(species_data: dict | None) -> int | None:
     """Legacy helper preserved for backward compat with any callers that still
     reference it. The Flora-aware version lives next to `_enrich()` as
     `_water_use_to_min_days` and operates on the categorical `water_use` field
-    instead of Perenual's `watering_general_benchmark.value`.
+    instead of Verdantly's `watering_general_benchmark.value`.
     """
     return None
 
@@ -69,7 +79,12 @@ class PlantStore:
 
     async def async_load(self) -> None:
         stored = await self._store.async_load()
-        self._data = stored or {"plants": {}, "plots": {}, "weather_log": {}, "archived_plants": {}}
+        self._data = stored or {
+            "plants": {},
+            "plots": {},
+            "weather_log": {},
+            "archived_plants": {},
+        }
         self._data.setdefault("plots", {})
         self._data.setdefault("plants", {})
         # weather_log is a per-day record of observed conditions, keyed by ISO
@@ -113,7 +128,8 @@ class PlantStore:
         """
         cutoff = (datetime.now() - _td(days=180)).isoformat(timespec="seconds")
         to_archive = [
-            pid for pid, p in self._data["plants"].items()
+            pid
+            for pid, p in self._data["plants"].items()
             if p.get("deleted_at") and p["deleted_at"] < cutoff
         ]
         for pid in to_archive:
@@ -123,8 +139,10 @@ class PlantStore:
             del self._data["plants"][pid]
             _LOGGER.info(
                 "Agribud: archived expired plant id=%s name=%r (status=%s, end=%s)",
-                pid, slim.get("name"),
-                slim.get("end_status"), slim.get("end_date"),
+                pid,
+                slim.get("name"),
+                slim.get("end_status"),
+                slim.get("end_date"),
             )
         return len(to_archive)
 
@@ -153,14 +171,14 @@ class PlantStore:
             da = plant.get("deleted_at") or ""
             end_date = da.split("T")[0] if "T" in da else (da[:10] if da else None)
         return {
-            "id":          plant.get("id"),
-            "name":        plant.get("name"),
-            "start_date":  plant.get("start_date"),
-            "end_date":    end_date,
-            "end_status":  end_status,  # "harvested" | "dead" | "removed"
-            "events":      list(events),
+            "id": plant.get("id"),
+            "name": plant.get("name"),
+            "start_date": plant.get("start_date"),
+            "end_date": end_date,
+            "end_status": end_status,  # "harvested" | "dead" | "removed"
+            "events": list(events),
             "archived_at": datetime.now().isoformat(timespec="seconds"),
-            "archived":    True,  # flag the card can read to route drill-down
+            "archived": True,  # flag the card can read to route drill-down
         }
 
     def _active_plants(self):
@@ -201,24 +219,28 @@ class PlantStore:
                 events = p.get("events") or []
                 end_status = "growing"
                 end_date = None
-                for e in sorted(events, key=lambda x: x.get("date") or "", reverse=True):
+                for e in sorted(
+                    events, key=lambda x: x.get("date") or "", reverse=True
+                ):
                     et = (e.get("type") or "").lower()
                     if et in (EVENT_DEAD, EVENT_HARVESTED):
                         end_status = et
                         end_date = e.get("date")
                         break
-                items.append({
-                    "id":         p.get("id"),
-                    "name":       p.get("name"),
-                    "start_date": p.get("start_date"),
-                    "end_date":   end_date,
-                    "end_status": end_status,
-                    "events":     list(events),
-                    "archived":   False,
-                })
+                items.append(
+                    {
+                        "id": p.get("id"),
+                        "name": p.get("name"),
+                        "start_date": p.get("start_date"),
+                        "end_date": end_date,
+                        "end_status": end_status,
+                        "events": list(events),
+                        "archived": False,
+                    }
+                )
         # Archived plants (post-6-month, slim records)
         for p in self._data["archived_plants"].values():
-            items.append({**p, "archived": True})
+            items.append({**p, "archived": True})  # noqa: PERF401
         return items
 
     def get_deleted_species_cache(self) -> list[dict]:
@@ -241,11 +263,15 @@ class PlantStore:
                 continue
             sp = sd.get("species") or {}
             key = (
-                sp.get("scientificName")
-                or sd.get("name")
-                or p.get("common_name")
-                or ""
-            ).strip().lower()
+                (
+                    sp.get("scientificName")
+                    or sd.get("name")
+                    or p.get("common_name")
+                    or ""
+                )
+                .strip()
+                .lower()
+            )
             if not key or key in seen:
                 continue
             seen.add(key)
@@ -263,36 +289,43 @@ class PlantStore:
         for plot in plots:
             plot_copy = dict(plot)
             plot_copy["plants"] = [
-                self._enrich(p) for p in self._active_plants()
+                self._enrich(p)
+                for p in self._active_plants()
                 if p.get("plot_id") == plot["id"]
                 or p.get("location", "").strip().lower() == plot["name"].strip().lower()
             ]
             plot_copy["plant_count"] = len(plot_copy["plants"])
             out.append(plot_copy)
         unassigned = [
-            self._enrich(p) for p in self._active_plants()
+            self._enrich(p)
+            for p in self._active_plants()
             if not p.get("plot_id") and not p.get("location")
         ]
         if unassigned:
-            out.append({
-                "id":          "_unassigned",
-                "name":        "Unassigned",
-                "description": "Plants not yet assigned to a grow plot",
-                "plants":      unassigned,
-                "plant_count": len(unassigned),
-                "virtual":     True,
-            })
+            out.append(
+                {
+                    "id": "_unassigned",
+                    "name": "Unassigned",
+                    "description": "Plants not yet assigned to a grow plot",
+                    "plants": unassigned,
+                    "plant_count": len(unassigned),
+                    "virtual": True,
+                }
+            )
         return out
 
     def get_plot(self, plot_id: str) -> dict | None:
         if plot_id == "_unassigned":
-            return next((p for p in self.get_all_plots() if p["id"] == "_unassigned"), None)
+            return next(
+                (p for p in self.get_all_plots() if p["id"] == "_unassigned"), None
+            )
         plot = self._data["plots"].get(plot_id)
         if not plot:
             return None
         plot_copy = dict(plot)
         plot_copy["plants"] = [
-            self._enrich(p) for p in self._active_plants()
+            self._enrich(p)
+            for p in self._active_plants()
             if p.get("plot_id") == plot_id
             or p.get("location", "").strip().lower() == plot["name"].strip().lower()
         ]
@@ -302,10 +335,10 @@ class PlantStore:
     async def async_add_plot(self, name: str, description: str = "") -> dict:
         plot_id = str(uuid.uuid4())
         plot = {
-            "id":          plot_id,
-            "name":        name,
+            "id": plot_id,
+            "name": name,
             "description": description,
-            "created_at":  _now(),
+            "created_at": _now(),
         }
         self._data["plots"][plot_id] = plot
         await self._save()
@@ -348,31 +381,39 @@ class PlantStore:
         return self._enrich(p)
 
     async def async_add_plant(
-        self, name: str, species_id: int | str,
-        start_type: str = "seed", start_date: str | None = None,
-        location: str = "", plot_id: str | None = None,
+        self,
+        name: str,
+        species_id: int | str,
+        start_type: str = "seed",
+        start_date: str | None = None,
+        location: str = "",
+        plot_id: str | None = None,
         species_data: dict | None = None,
     ) -> dict:
         pid = str(uuid.uuid4())
         plant = {
-            "id":           pid,
-            "name":         name,
-            "species_id":   species_id,
-            "start_type":   start_type,
-            "start_date":   start_date or _today(),
-            "location":     location,
-            "plot_id":      plot_id,
-            "events":       [],
+            "id": pid,
+            "name": name,
+            "species_id": species_id,
+            "start_type": start_type,
+            "start_date": start_date or _today(),
+            "location": location,
+            "plot_id": plot_id,
+            "events": [],
             "species_data": species_data or {},
-            "created_at":   _now(),
+            "created_at": _now(),
         }
         self._data["plants"][pid] = plant
         await self._save()
         _LOGGER.info(
             "Agribud: added plant id=%s name='%s' species_id=%s plot=%s start=%s "
             "(species_data cached: %s)",
-            pid, name, species_id, plot_id or location or "(none)",
-            plant["start_date"], "yes" if species_data else "no",
+            pid,
+            name,
+            species_id,
+            plot_id or location or "(none)",
+            plant["start_date"],
+            "yes" if species_data else "no",
         )
         return self._enrich(plant)
 
@@ -380,8 +421,15 @@ class PlantStore:
         plant = self._data["plants"].get(plant_id)
         if not plant:
             return None
-        allowed = {"name", "species_id", "start_type", "start_date",
-                   "location", "plot_id", "species_data"}
+        allowed = {
+            "name",
+            "species_id",
+            "start_type",
+            "start_date",
+            "location",
+            "plot_id",
+            "species_data",
+        }
         for k, v in kwargs.items():
             if k in allowed:
                 plant[k] = v
@@ -407,12 +455,15 @@ class PlantStore:
                     await self._save()
                     _LOGGER.info(
                         "Agribud: re-anchored planted event for %s to %s",
-                        plant_id, new_date,
+                        plant_id,
+                        new_date,
                     )
                 return True
         return False
 
-    async def async_update_overrides(self, plant_id: str, overrides: dict) -> dict | None:
+    async def async_update_overrides(
+        self, plant_id: str, overrides: dict
+    ) -> dict | None:
         """Merge user-supplied field overrides onto a plant.
 
         Overrides are user-edited values that take precedence over the
@@ -429,23 +480,31 @@ class PlantStore:
         # the Verdantly field set surfaced on the trading card.
         allowed_keys = {
             # Identity / display
-            "common_name", "scientific_name",
+            "common_name",
+            "scientific_name",
             # Light / Water (categorical + numeric min/max days)
             "light_requirements",
-            "water_use",          # categorical (Low/Moderate/High)
+            "water_use",  # categorical (Low/Moderate/High)
             "watering_min_days",  # numeric override for needs_water threshold
             "watering_max_days",  # numeric override (display only)
             # Soil + spacing + growth
-            "soil_preference", "spacing_requirement", "growth_period",
-            "soil_ph_min", "soil_ph_max",
+            "soil_preference",
+            "spacing_requirement",
+            "growth_period",
+            "soil_ph_min",
+            "soil_ph_max",
             # Hardiness zones
-            "hardiness_zone_min", "hardiness_zone_max",
+            "hardiness_zone_min",
+            "hardiness_zone_max",
             # Harvest window
-            "days_to_harvest_min", "days_to_harvest_max",
+            "days_to_harvest_min",
+            "days_to_harvest_max",
             # Ecology flag (user can flag a plant as invasive)
             "invasive_alert",
             # Free-text fields
-            "care_instructions", "description", "habitat",
+            "care_instructions",
+            "description",
+            "habitat",
             # Image
             "image_url",
         }
@@ -464,7 +523,8 @@ class PlantStore:
         await self._save()
         _LOGGER.info(
             "Agribud: plant %s overrides updated (%d active keys)",
-            plant_id, len(current),
+            plant_id,
+            len(current),
         )
         return self._enrich(plant)
 
@@ -494,7 +554,9 @@ class PlantStore:
         _LOGGER.info(
             "Agribud: soft-deleted plant id=%s name=%r (%d event(s), "
             "species_data %s). Kept in cache for 6 months.",
-            plant_id, plant_name, event_count,
+            plant_id,
+            plant_name,
+            event_count,
             "kept" if had_cache else "absent",
         )
         return True
@@ -502,19 +564,23 @@ class PlantStore:
     # ── Events ────────────────────────────────────────────────────────────────
 
     async def async_log_event(
-        self, plant_id: str, event_type: str,
-        note: str = "", event_date: str | None = None, auto: bool = False,
+        self,
+        plant_id: str,
+        event_type: str,
+        note: str = "",
+        event_date: str | None = None,
+        auto: bool = False,
     ) -> dict | None:
         plant = self._data["plants"].get(plant_id)
         if not plant:
             _LOGGER.warning("Agribud: log_event — plant id=%s not found", plant_id)
             return None
         event = {
-            "id":         str(uuid.uuid4()),
-            "type":       event_type,
-            "note":       note,
-            "date":       event_date or _today(),
-            "auto":       auto,
+            "id": str(uuid.uuid4()),
+            "type": event_type,
+            "note": note,
+            "date": event_date or _today(),
+            "auto": auto,
             "created_at": _now(),
         }
         plant["events"].append(event)
@@ -541,8 +607,13 @@ class PlantStore:
     # ── Weather log (per-date observations for calendar icons) ───────────────
 
     async def async_record_weather(
-        self, *, date_str: str, rain: bool = False, snow: bool = False,
-        frost: bool = False, condition: str = "",
+        self,
+        *,
+        date_str: str,
+        rain: bool = False,
+        snow: bool = False,
+        frost: bool = False,
+        condition: str = "",
     ) -> bool:
         """Record an observation for a date. Returns True if anything actually
         changed (so the caller knows whether to fire a bus event or log new
@@ -554,8 +625,8 @@ class PlantStore:
         """
         log = self._data["weather_log"]
         prev = log.get(date_str, {})
-        new_rain  = bool(prev.get("rain"))  or rain
-        new_snow  = bool(prev.get("snow"))  or snow
+        new_rain = bool(prev.get("rain")) or rain
+        new_snow = bool(prev.get("snow")) or snow
         new_frost = bool(prev.get("frost")) or frost
         conditions = list(prev.get("conditions", []))
         if condition and condition not in conditions:
@@ -563,15 +634,17 @@ class PlantStore:
             if len(conditions) > 5:
                 conditions = conditions[-5:]
         changed = (
-            new_rain  != prev.get("rain", False)
-            or new_snow  != prev.get("snow", False)
+            new_rain != prev.get("rain", False)
+            or new_snow != prev.get("snow", False)
             or new_frost != prev.get("frost", False)
             or conditions != prev.get("conditions", [])
         )
         if not changed:
             return False
         log[date_str] = {
-            "rain": new_rain, "snow": new_snow, "frost": new_frost,
+            "rain": new_rain,
+            "snow": new_snow,
+            "frost": new_frost,
             "conditions": conditions,
         }
         # Keep the log from growing unbounded — trim entries older than 90 days
@@ -583,7 +656,11 @@ class PlantStore:
         _LOGGER.info(
             "Agribud: weather log for %s — rain=%s snow=%s frost=%s "
             "condition=%r (changed)",
-            date_str, new_rain, new_snow, new_frost, condition,
+            date_str,
+            new_rain,
+            new_snow,
+            new_frost,
+            condition,
         )
         return True
 
@@ -637,9 +714,14 @@ class PlantStore:
         if weather_log and start_date_str:
             # Only look at days that could have watered this plant
             rain_days = [
-                ds for ds, w in weather_log.items()
-                if (isinstance(w, dict) and w.get("rain")
-                    and ds >= start_date_str and ds <= today_iso)
+                ds
+                for ds, w in weather_log.items()
+                if (
+                    isinstance(w, dict)
+                    and w.get("rain")
+                    and ds >= start_date_str
+                    and ds <= today_iso
+                )
             ]
             if rain_days:
                 last_w_rain = max(rain_days)
@@ -648,18 +730,18 @@ class PlantStore:
         # Step 3: fall back to start_date for the "never been watered" case.
         # We expose this under a separate flag so the UI can show "never
         # watered" rather than implying the start day was a watering day.
-        never_watered = (last_w is None)
+        never_watered = last_w is None
         baseline = last_w or start_date_str or None
 
-        p["last_watered"]          = last_w  # actual most-recent water event (None if never)
-        p["last_fertilized"]       = last_f
+        p["last_watered"] = last_w  # actual most-recent water event (None if never)
+        p["last_fertilized"] = last_f
         # days_since_watered uses the baseline (start_date fallback) so that
         # plants planted in the past with no watering yet correctly trigger
         # needs_water. This is the value the needs_water sensor compares
         # against watering_min_days.
-        p["days_since_watered"]    = _days_since(baseline) if baseline else None
+        p["days_since_watered"] = _days_since(baseline) if baseline else None
         p["days_since_fertilized"] = _days_since(last_f)
-        p["never_watered"]         = bool(never_watered and start_date_str)
+        p["never_watered"] = bool(never_watered and start_date_str)
         # Surface whether the most recent watering came from rain (so the UI
         # can show a 🌧 indicator instead of just "needs water")
         if last_w_rain and last_w_rain == last_w:
@@ -690,14 +772,14 @@ class PlantStore:
         ov = p.get("user_overrides") or {}
 
         # Nested-section shorthand for the most-referenced sub-objects
-        gr   = sd.get("growingRequirements") or {}
-        gd   = sd.get("growthDetails")       or {}
-        lm   = sd.get("lifecycleMilestones") or {}
-        sp   = sd.get("species")             or {}
-        tx   = sp.get("taxonomy")            or {}
-        eco  = sd.get("ecology")             or {}
-        safety = sd.get("safety")            or {}
-        tox  = safety.get("toxicity")        or {}
+        gr = sd.get("growingRequirements") or {}
+        gd = sd.get("growthDetails") or {}
+        lm = sd.get("lifecycleMilestones") or {}
+        sp = sd.get("species") or {}
+        tx = sp.get("taxonomy") or {}
+        eco = sd.get("ecology") or {}
+        safety = sd.get("safety") or {}
+        tox = safety.get("toxicity") or {}
 
         def pick(key, *path_or_default, default=None):
             """Return the user override for `key` if set, otherwise look up
@@ -734,13 +816,10 @@ class PlantStore:
         # cultivar/variety name like "Abe Lincoln Original Tomato").
         # We prefer the variety name when present since it's more specific.
         species_common = sp.get("commonName") or ""
-        species_sci    = sp.get("scientificName") or ""
-        variety_name   = sd.get("name") or ""
+        species_sci = sp.get("scientificName") or ""
+        variety_name = sd.get("name") or ""
         p["common_name"] = (
-            ov.get("common_name")
-            or variety_name
-            or species_common
-            or species_sci
+            ov.get("common_name") or variety_name or species_common or species_sci
         )
         p["scientific_name"] = ov.get("scientific_name") or species_sci or ""
         p["common_names"] = [p["common_name"]] if p["common_name"] else []
@@ -754,9 +833,7 @@ class PlantStore:
         # Verdantly's `growingRequirements.sunlightRequirement` is a string
         # like "Full Sun", "Partial Shade". Used directly with no mapping.
         p["light_requirements"] = (
-            ov.get("light_requirements")
-            or gr.get("sunlightRequirement")
-            or ""
+            ov.get("light_requirements") or gr.get("sunlightRequirement") or ""
         )
         p["sunlight"] = [p["light_requirements"]] if p["light_requirements"] else []
 
@@ -765,18 +842,18 @@ class PlantStore:
         # string ("Low" / "Moderate" / "High"). We project to a (min, max)
         # days range so the existing needs_water plumbing keeps working.
         # User can override watering_min_days / watering_max_days per plant.
-        water_req_raw = (
-            ov.get("water_use")
-            or gr.get("waterRequirement")
-            or ""
-        )
+        water_req_raw = ov.get("water_use") or gr.get("waterRequirement") or ""
         p["water_use"] = water_req_raw
         p["water_requirement"] = water_req_raw  # alias for the new API name
         default_min, default_max = _water_requirement_to_day_range(water_req_raw)
         ov_min = ov.get("watering_min_days")
         ov_max = ov.get("watering_max_days")
-        p["watering_min_days"] = _coerce_int(ov_min) if _coerce_int(ov_min) is not None else default_min
-        p["watering_max_days"] = _coerce_int(ov_max) if _coerce_int(ov_max) is not None else default_max
+        p["watering_min_days"] = (
+            _coerce_int(ov_min) if _coerce_int(ov_min) is not None else default_min
+        )
+        p["watering_max_days"] = (
+            _coerce_int(ov_max) if _coerce_int(ov_max) is not None else default_max
+        )
         # Defaults surfaced so the override-form placeholders can show them
         p["watering_default_min_days"] = default_min
         p["watering_default_max_days"] = default_max
@@ -807,10 +884,14 @@ class PlantStore:
             p["hardiness_zone_range"] = ""
 
         # ── Soil preference, spacing, growth period, care instructions ────
-        p["soil_preference"]      = pick("soil_preference", gr, "soilPreference", default="")
-        p["spacing_requirement"]  = pick("spacing_requirement", gr, "spacingRequirement", default="")
-        p["growth_period"]        = pick("growth_period", gd, "growthPeriod", default="")
-        p["care_instructions"]    = pick("care_instructions", gr, "careInstructions", default="")
+        p["soil_preference"] = pick("soil_preference", gr, "soilPreference", default="")
+        p["spacing_requirement"] = pick(
+            "spacing_requirement", gr, "spacingRequirement", default=""
+        )
+        p["growth_period"] = pick("growth_period", gd, "growthPeriod", default="")
+        p["care_instructions"] = pick(
+            "care_instructions", gr, "careInstructions", default=""
+        )
 
         # ── pH range ──────────────────────────────────────────────────────
         ph_min = pick("soil_ph_min", eco, "soilPhMin")
@@ -856,7 +937,7 @@ class PlantStore:
         # Levels we treat as "not worth warning about" — per user request,
         # filtered out of the display string. Anything else (moderate,
         # severe, toxic, highly toxic, unknown level) is shown.
-        BENIGN_LEVELS = {"non-toxic", "nontoxic", "none", "mild", "low", ""}
+        benign_levels = {"non-toxic", "nontoxic", "none", "mild", "low", ""}
         if tox_keys:
             concerning = []
             for k in tox_keys:
@@ -864,7 +945,7 @@ class PlantStore:
                 v = tox.get(k)
                 if isinstance(v, dict):
                     level = (v.get("level") or "").strip().lower()
-                if level in BENIGN_LEVELS:
+                if level in benign_levels:
                     continue
                 concerning.append(f"{k} ({level})" if level else k)
             p["toxicity_display"] = ", ".join(concerning) if concerning else "Non-toxic"
@@ -879,48 +960,48 @@ class PlantStore:
             p["invasive_alert"] = bool(eco.get("isInvasive"))
 
         # ── Taxonomy footer (family | genus | species) ────────────────────
-        p["taxonomy_family"]  = tx.get("family")  or ""
-        p["taxonomy_genus"]   = tx.get("genus")   or ""
+        p["taxonomy_family"] = tx.get("family") or ""
+        p["taxonomy_genus"] = tx.get("genus") or ""
         p["taxonomy_species"] = tx.get("species") or ""
         # Compose a "family | genus | species" display string, skipping
         # empty parts so we don't show "Solanaceae | Solanum | "
-        tax_parts = [t for t in (p["taxonomy_family"], p["taxonomy_genus"], p["taxonomy_species"]) if t]
+        tax_parts = [
+            t
+            for t in (p["taxonomy_family"], p["taxonomy_genus"], p["taxonomy_species"])
+            if t
+        ]
         p["taxonomy_display"] = " | ".join(tax_parts)
 
         # ── Image ─────────────────────────────────────────────────────────
         # Verdantly puts the image URL at the top level. User override wins.
         p["image_url"] = ov.get("image_url") or sd.get("imageUrl") or None
         p["image_attribution"] = sd.get("imageAttribution") or ""
-        p["image_license"]     = sd.get("imageLicense")     or ""
+        p["image_license"] = sd.get("imageLicense") or ""
 
         # ── Description (replaced by care_instructions on the card) ───────
-        p["description"] = (
-            ov.get("description")
-            or sd.get("description")
-            or ""
-        )
+        p["description"] = ov.get("description") or sd.get("description") or ""
 
         # ── Fields we no longer surface but keep present for back-compat ──
         # APIFarmer/Flora era leftovers — empty strings/Nones so the card
         # doesn't throw on `.toLowerCase()` etc.
-        p["active_growth_period"]   = ""
-        p["plant_type"]             = ""
-        p["fruiting_period"]        = ""
-        p["root_depth_inches"]      = None
-        p["cold_stratification"]    = ""
-        p["growth_rate"]            = ""
-        p["habitat"]                = pick("habitat", default="")
-        p["soil_moisture"]          = ""
-        p["moisture_use"]           = water_req_raw  # alias for the watering form
-        p["flowering_seasons"]      = []
-        p["flowering_season"]       = None
-        p["harvest_season"]         = None
-        p["noxious"]                = None
-        p["noxious_flag"]           = False
-        p["poisonous_to_pets"]      = "cats" in tox or "dogs" in tox
-        p["poisonous_to_humans"]    = "humans" in tox
-        p["hardiness_map_url"]      = None
-        p["hardiness_map_iframe"]   = None
+        p["active_growth_period"] = ""
+        p["plant_type"] = ""
+        p["fruiting_period"] = ""
+        p["root_depth_inches"] = None
+        p["cold_stratification"] = ""
+        p["growth_rate"] = ""
+        p["habitat"] = pick("habitat", default="")
+        p["soil_moisture"] = ""
+        p["moisture_use"] = water_req_raw  # alias for the watering form
+        p["flowering_seasons"] = []
+        p["flowering_season"] = None
+        p["harvest_season"] = None
+        p["noxious"] = None
+        p["noxious_flag"] = False
+        p["poisonous_to_pets"] = "cats" in tox or "dogs" in tox
+        p["poisonous_to_humans"] = "humans" in tox
+        p["hardiness_map_url"] = None
+        p["hardiness_map_iframe"] = None
 
         # Surface the override dict so the card can pre-fill the edit form
         p["user_overrides"] = dict(ov)
@@ -934,10 +1015,10 @@ def _coerce_int(v) -> int | None:
         return None
     try:
         return int(v)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         try:
             return int(float(v))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None
 
 
@@ -959,11 +1040,11 @@ def _water_requirement_to_day_range(water_req: str) -> tuple[int | None, int | N
     if not water_req:
         return (None, None)
     key = str(water_req).strip().lower()
-    if key in ("low",):
+    if key == "low":
         return (7, 14)
     if key in ("moderate", "medium", "average"):
         return (3, 7)
-    if key in ("high",):
+    if key == "high":
         return (1, 3)
     return (None, None)
 

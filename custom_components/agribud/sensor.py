@@ -7,19 +7,24 @@ Per-plant sensors (created dynamically) — one per plant, with all
 species-derived attributes (sunlight, watering frequency, hardiness, etc.)
 exposed for use in HA automations.
 """
+
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from homeassistant.components.sensor import (
-    SensorDeviceClass, SensorEntity, SensorStateClass,
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN, EVENT_HARVESTED, EVENT_DEAD
 from .coordinator import AgribudCoordinator
@@ -30,22 +35,43 @@ _LOGGER = logging.getLogger(__name__)
 def _device(entry: ConfigEntry) -> DeviceInfo:
     return DeviceInfo(
         identifiers={(DOMAIN, entry.entry_id)},
-        name="Agribud", manufacturer="Agribud",
-        model="Perenual plant database", sw_version="0.1.0",
+        name="Agribud",
+        manufacturer="Agribud",
+        model="Verdantly plant database",
+        sw_version="0.1.0",
     )
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry,
+    hass: HomeAssistant,
+    entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coord: AgribudCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    async_add_entities([
-        WeatherMirror(coord, entry, "temperature",   "Temperature",   SensorDeviceClass.TEMPERATURE),
-        WeatherMirror(coord, entry, "humidity",      "Humidity",      SensorDeviceClass.HUMIDITY),
-        WeatherMirror(coord, entry, "wind_speed",    "Wind speed",    SensorDeviceClass.WIND_SPEED),
-        WeatherMirror(coord, entry, "precipitation", "Precipitation", SensorDeviceClass.PRECIPITATION),
-    ])
+    async_add_entities(
+        [
+            WeatherMirror(
+                coord,
+                entry,
+                "temperature",
+                "Temperature",
+                SensorDeviceClass.TEMPERATURE,
+            ),
+            WeatherMirror(
+                coord, entry, "humidity", "Humidity", SensorDeviceClass.HUMIDITY
+            ),
+            WeatherMirror(
+                coord, entry, "wind_speed", "Wind speed", SensorDeviceClass.WIND_SPEED
+            ),
+            WeatherMirror(
+                coord,
+                entry,
+                "precipitation",
+                "Precipitation",
+                SensorDeviceClass.PRECIPITATION,
+            ),
+        ]
+    )
     mgr = PlantSensorManager(hass, coord, entry, async_add_entities)
     coord.async_add_listener(mgr.refresh)
 
@@ -53,13 +79,14 @@ async def async_setup_entry(
 class WeatherMirror(CoordinatorEntity[AgribudCoordinator], SensorEntity):
     """Mirrors a field from the configured HA weather entity, preserving the
     native unit so HA does no automatic conversion."""
+
     _attr_has_entity_name = True
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     _UNIT_KEY_MAP = {
-        "temperature":   "temperature_unit",
-        "humidity":      "humidity_unit",
-        "wind_speed":    "wind_speed_unit",
+        "temperature": "temperature_unit",
+        "humidity": "humidity_unit",
+        "wind_speed": "wind_speed_unit",
         "precipitation": "precipitation_unit",
     }
 
@@ -84,7 +111,7 @@ class WeatherMirror(CoordinatorEntity[AgribudCoordinator], SensorEntity):
     def extra_state_attributes(self) -> dict:
         return {
             "source_entity": self.coordinator.weather_entity,
-            "native_unit":   self.native_unit_of_measurement,
+            "native_unit": self.native_unit_of_measurement,
         }
 
 
@@ -109,7 +136,10 @@ class PlantSensor(CoordinatorEntity[AgribudCoordinator], SensorEntity):
       harvested → grey    (mdi:basket-check)
       scheduled → blue    (mdi:calendar-clock)
     """
-    _attr_has_entity_name = False  # We want the plant's display name to be the full entity name
+
+    _attr_has_entity_name = (
+        False  # We want the plant's display name to be the full entity name
+    )
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_options = ["scheduled", "healthy", "thirsty", "danger", "harvested", "dead"]
     _attr_translation_key = "plant_status"
@@ -128,7 +158,9 @@ class PlantSensor(CoordinatorEntity[AgribudCoordinator], SensorEntity):
 
     @property
     def _plant(self) -> dict | None:
-        return next((p for p in self.coordinator.get_plants() if p["id"] == self._pid), None)
+        return next(
+            (p for p in self.coordinator.get_plants() if p["id"] == self._pid), None
+        )
 
     @property
     def name(self) -> str:
@@ -140,11 +172,11 @@ class PlantSensor(CoordinatorEntity[AgribudCoordinator], SensorEntity):
         state = self.native_value
         return {
             "scheduled": "mdi:calendar-clock",
-            "healthy":   "mdi:sprout",
-            "thirsty":   "mdi:water-alert",
-            "danger":    "mdi:snowflake-alert",
+            "healthy": "mdi:sprout",
+            "thirsty": "mdi:water-alert",
+            "danger": "mdi:snowflake-alert",
             "harvested": "mdi:basket-check",
-            "dead":      "mdi:leaf-off",
+            "dead": "mdi:leaf-off",
         }.get(state, "mdi:sprout")
 
     @property
@@ -186,7 +218,7 @@ class PlantSensor(CoordinatorEntity[AgribudCoordinator], SensorEntity):
         try:
             if (self.coordinator.data or {}).get("frost_tonight"):
                 return "danger"
-        except Exception:
+        except Exception:  # noqa: S110
             pass
 
         # ── 4. Thirsty: overdue for water ─────────────────────────────────
@@ -205,24 +237,24 @@ class PlantSensor(CoordinatorEntity[AgribudCoordinator], SensorEntity):
             return {}
         return {
             # Identity
-            "plant_id":           p["id"],
-            "plant_name":         p.get("name"),
-            "species_id":         p.get("species_id"),
-            "image_url":          p.get("image_url"),
-            "description":        p.get("description"),
+            "plant_id": p["id"],
+            "plant_name": p.get("name"),
+            "species_id": p.get("species_id"),
+            "image_url": p.get("image_url"),
+            "description": p.get("description"),
             # Tracking
-            "start_type":            p.get("start_type"),
-            "start_date":            p.get("start_date"),
-            "location":              p.get("location"),
-            "days_growing":          p.get("days_growing"),
-            "days_until_planting":   p.get("days_until_planting"),
-            "is_scheduled":          p.get("is_scheduled", False),
-            "days_since_watered":    p.get("days_since_watered"),
+            "start_type": p.get("start_type"),
+            "start_date": p.get("start_date"),
+            "location": p.get("location"),
+            "days_growing": p.get("days_growing"),
+            "days_until_planting": p.get("days_until_planting"),
+            "is_scheduled": p.get("is_scheduled", False),
+            "days_since_watered": p.get("days_since_watered"),
             "days_since_fertilized": p.get("days_since_fertilized"),
-            "last_watered":          p.get("last_watered"),
-            "last_fertilized":       p.get("last_fertilized"),
-            "last_water_source":     p.get("last_water_source"),  # "manual" | "rain" | None
-            "never_watered":         p.get("never_watered", False),
+            "last_watered": p.get("last_watered"),
+            "last_fertilized": p.get("last_fertilized"),
+            "last_water_source": p.get("last_water_source"),  # "manual" | "rain" | None
+            "never_watered": p.get("never_watered", False),
             # Convenience boolean for automations: true when overdue for water
             "needs_water": (
                 (not p.get("is_scheduled", False))
@@ -230,22 +262,22 @@ class PlantSensor(CoordinatorEntity[AgribudCoordinator], SensorEntity):
                 and p.get("days_since_watered") >= (p.get("watering_min_days") or 3)
             ),
             # Verdantly species data — exposed for automations
-            "common_name":            p.get("common_name"),
-            "scientific_name":        p.get("scientific_name"),
-            "sunlight":               p.get("sunlight"),
-            "light_requirements":     p.get("light_requirements"),
-            "water_use":              p.get("water_use"),
-            "watering_min_days":      p.get("watering_min_days"),
-            "watering_max_days":      p.get("watering_max_days"),
-            "watering_benchmark":     p.get("watering_benchmark_value"),
+            "common_name": p.get("common_name"),
+            "scientific_name": p.get("scientific_name"),
+            "sunlight": p.get("sunlight"),
+            "light_requirements": p.get("light_requirements"),
+            "water_use": p.get("water_use"),
+            "watering_min_days": p.get("watering_min_days"),
+            "watering_max_days": p.get("watering_max_days"),
+            "watering_benchmark": p.get("watering_benchmark_value"),
             "watering_benchmark_unit": p.get("watering_benchmark_unit"),
-            "hardiness_zone_min":     p.get("hardiness_zone_min"),
-            "hardiness_zone_max":     p.get("hardiness_zone_max"),
-            "soil_preference":        p.get("soil_preference"),
-            "spacing_requirement":    p.get("spacing_requirement"),
-            "growth_period":          p.get("growth_period"),
-            "toxicity_display":       p.get("toxicity_display"),
-            "invasive_alert":         p.get("invasive_alert"),
+            "hardiness_zone_min": p.get("hardiness_zone_min"),
+            "hardiness_zone_max": p.get("hardiness_zone_max"),
+            "soil_preference": p.get("soil_preference"),
+            "spacing_requirement": p.get("spacing_requirement"),
+            "growth_period": p.get("growth_period"),
+            "toxicity_display": p.get("toxicity_display"),
+            "invasive_alert": p.get("invasive_alert"),
             # History
             "recent_events": (p.get("events_sorted") or [])[:20],
         }
@@ -262,7 +294,7 @@ def _slugify_plant_name(name: str) -> str:
     """
     if not name:
         return ""
-    import re
+
     s = name.strip().lower()
     s = re.sub(r"[^a-z0-9]+", "_", s)
     s = re.sub(r"_+", "_", s).strip("_")
@@ -291,8 +323,12 @@ class PlantSensorManager:
         if new_ids:
             current_by_id = {p["id"]: p for p in self._coord.get_plants()}
             entities = [
-                PlantSensor(self._coord, self._entry, pid,
-                            plant_name=current_by_id[pid].get("name") or "")
+                PlantSensor(
+                    self._coord,
+                    self._entry,
+                    pid,
+                    plant_name=current_by_id[pid].get("name") or "",
+                )
                 for pid in new_ids
             ]
             self._add(entities)
@@ -303,7 +339,6 @@ class PlantSensorManager:
         # using the deterministic unique_id pattern set in PlantSensor.
         removed_ids = self._known - current_ids
         if removed_ids:
-            from homeassistant.helpers import entity_registry as er
             registry = er.async_get(self._hass)
             for pid in list(removed_ids):
                 unique_id = f"{self._entry.entry_id}_plant_{pid}"
@@ -312,6 +347,7 @@ class PlantSensorManager:
                     registry.async_remove(ent_id)
                     _LOGGER.info(
                         "Agribud: removed sensor for deleted plant id=%s (entity %s)",
-                        pid, ent_id,
+                        pid,
+                        ent_id,
                     )
                 self._known.discard(pid)
