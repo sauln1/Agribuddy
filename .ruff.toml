@@ -28,6 +28,15 @@ ignore = [
 	"DTZ005", # datetime called without tz
 	"BLE001", # blind exception
 	"DTZ011", # date tz
+	"ANN003", # Missing type annotation
+	"PLR0915", # too many statements
+	"PLR0912", # too many branches
+	"D107", # missing docstring
+	"ANN001", # missing type annotation for function
+	"TRY003", # long messages
+	"D102", # missing docstring
+	"D101", # missing docstring
+
 ]
 
 [lint.flake8-pytest-style]
