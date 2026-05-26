@@ -119,7 +119,7 @@ Rain detected on your weather entity counts as a watering — Agribuddy logs a `
 This integration is meant to be used with the [Agribuddy-card companion](https://github.com/sauln1/agribuddy-card)
 
 ## Layout
-<img width="1316" height="427" alt="agribuddy-img" src="agribuddy-img.png" />
+<img width="1316" height="427" alt="agribuddy-img" src="https://github.com/sauln1/Agribuddy/blob/b207292199051d1a201423558d7cc8fa410f1828/agribud-img.png" />
 
 The card supports three layouts:
 
