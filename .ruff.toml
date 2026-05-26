@@ -36,6 +36,7 @@ ignore = [
 	"TRY003", # long messages
 	"D102", # missing docstring
 	"D101", # missing docstring
+	"ANN003", # missing annotation
 
 ]
 
