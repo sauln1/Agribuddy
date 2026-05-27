@@ -29,8 +29,7 @@ A Home Assistant integration + Lovelace card for tracking your garden. Plan grow
 
 - Home Assistant 2025.12 or later
 - A weather entity (HA's built-in weather integration, MQTT weather sensor, template, or any entity exposing the standard weather attributes)
-- A free RapidAPI account + Verdantly Gardening API subscription. See setup below.
-
+- A free RapidAPI account + Verdantly Gardening API subscription. See setup below. itnis highly recommended to purchase a higher tier for Verdantly API for larger gardens or setups!
 ---
 
 ## Installation
