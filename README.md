@@ -190,9 +190,17 @@ Weather data is read entirely from your local HA weather entity. Plant records, 
 
 ---
 
+## Future Feature Plans
+**Grow Plot Planner** -  Visually manage and organize your grow plots with a build in grid.
+**Global Data** - Expand available data beyond US based plants.
+**Expanded Plant Details** - More visualizations and details for available plants.
+
+--
+
 ## Credits
 
-Plant data: [Verdantly Gardening API](https://rapidapi.com/verdantly-team-verdantly-team-default/api/verdantly-gardening-api)
+Plant data: [Verdantly Gardening API](https://verdantly.io)
+Author: Nick Saul (@sauln1)
 
 ---
 
