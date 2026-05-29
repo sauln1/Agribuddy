@@ -27,10 +27,9 @@ A Home Assistant integration + Lovelace card for tracking your garden. Plan grow
 
 ## Requirements
 
-- Home Assistant 2025.1 or later
+- Home Assistant 2025.12 or later
 - A weather entity (HA's built-in weather integration, MQTT weather sensor, template, or any entity exposing the standard weather attributes)
-- A free RapidAPI account + Verdantly Gardening API subscription. See setup below.
-
+- A free RapidAPI account + Verdantly Gardening API subscription. See setup below. itnis highly recommended to purchase a higher tier for Verdantly API for larger gardens or setups!
 ---
 
 ## Installation
@@ -65,7 +64,8 @@ A Home Assistant integration + Lovelace card for tracking your garden. Plan grow
 1. Go to [RapidAPI's Verdantly Gardening API page](https://rapidapi.com/verdantly-team-verdantly-team-default/api/verdantly-gardening-api).
 2. Sign up for a free RapidAPI account.
 3. Subscribe to the **Basic (Free)** plan — 25 API calls per month, no credit card required.
-4. Copy your **X-RapidAPI-Key** from the dashboard. This is what Agribuddy needs.
+4. Ensure your RapidAPI app/console is set to API "V1".
+5. Copy your **X-RapidAPI-Key** from the dashboard. This is what Agribuddy needs.
 
 ### 2. Add the integration
 
@@ -167,6 +167,8 @@ API usage tracking lives in `.storage/agribuddy.api_usage` keyed by `YYYY-MM`. R
 
 ## Troubleshooting
 
+**"404 Error" code** - if you are getting a 404 error code when adding a new plant, thisnis usually due to not having the integration set up completely, make sure you complete Step 2 under Setup.
+
 **"Verdantly rejected this key"** — the key is wrong or you haven't subscribed to the Verdantly Gardening API on RapidAPI. Double-check by visiting the API page on RapidAPI and confirming the **Subscribe** button is grey ("Subscribed").
 
 **"⛔ quota exhausted"** — you've hit your maximum number of calls for the month. Wait for the monthly reset or upgrade to a higher RapidAPI tier. Adding plants you already have in the Recent Plants strip doesn't burn calls.
@@ -189,9 +191,17 @@ Weather data is read entirely from your local HA weather entity. Plant records, 
 
 ---
 
+## Future Feature Plans
+**Grow Plot Planner** -  Visually manage and organize your grow plots with a build in grid.
+**Global Data** - Expand available data beyond US based plants.
+**Expanded Plant Details** - More visualizations and details for available plants.
+
+--
+
 ## Credits
 
-Plant data: [Verdantly Gardening API](https://rapidapi.com/verdantly-team-verdantly-team-default/api/verdantly-gardening-api)
+Plant data: [Verdantly Gardening API](https://verdantly.io)
+Author: Nick Saul (@sauln1)
 
 ---
 
