@@ -193,7 +193,7 @@ Weather data is read entirely from your local HA weather entity. Plant records, 
 
 ## Future Feature Plans
 - **Add Custom Plants** - Create and add completely custom plants that are saved locally.
-- **Soil Sensor Integration* - Add your soil moisture sensors to increase water need accuracy.
+- **Soil Moisture Sensor Integration** - Add your soil moisture sensors to increase water need accuracy.
 - **Grow Plot Planner** -  Visually manage and organize your grow plots with a build in grid.
 - **Global Data** - Expand available data beyond US based plants.
 - **Expanded Plant Details** - More visualizations and details for available plants.
