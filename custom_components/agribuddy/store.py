@@ -24,20 +24,21 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import date, datetime, timedelta as _td
+from datetime import date, datetime
+from datetime import timedelta as _td
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .const import (
+    EVENT_DEAD,
+    EVENT_FERTILIZED,
+    EVENT_HARVESTED,
+    EVENT_PLANTED,
+    EVENT_RAIN_DETECTED,
+    EVENT_WATERED,
     STORAGE_KEY,
     STORAGE_VERSION,
-    EVENT_WATERED,
-    EVENT_FERTILIZED,
-    EVENT_RAIN_DETECTED,
-    EVENT_PLANTED,
-    EVENT_HARVESTED,
-    EVENT_DEAD,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -58,7 +59,7 @@ def _days_since(iso: str | None) -> int | None:
         return None
     try:
         return (date.today() - date.fromisoformat(iso[:10])).days
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return None
 
 
@@ -875,7 +876,7 @@ class PlantStore:
         p["hardiness_zone_max"] = hz_max
         # Pre-composed range string for display
         if hz_min is not None and hz_max is not None and hz_min != hz_max:
-            p["hardiness_zone_range"] = f"{hz_min}–{hz_max}"
+            p["hardiness_zone_range"] = f"{hz_min}–{hz_max}"  # noqa: RUF001
         elif hz_min is not None:
             p["hardiness_zone_range"] = str(hz_min)
         elif hz_max is not None:
@@ -899,7 +900,7 @@ class PlantStore:
         p["soil_ph_min"] = ph_min
         p["soil_ph_max"] = ph_max
         if ph_min is not None and ph_max is not None and ph_min != ph_max:
-            p["soil_ph_range"] = f"{ph_min}–{ph_max}"
+            p["soil_ph_range"] = f"{ph_min}–{ph_max}"  # noqa: RUF001
         elif ph_min is not None:
             p["soil_ph_range"] = str(ph_min)
         elif ph_max is not None:
@@ -913,7 +914,7 @@ class PlantStore:
         p["days_to_harvest_min"] = h_min
         p["days_to_harvest_max"] = h_max
         if h_min is not None and h_max is not None and h_min != h_max:
-            p["harvest_range"] = f"{h_min}–{h_max} days"
+            p["harvest_range"] = f"{h_min}–{h_max} days"  # noqa: RUF001
         elif h_min is not None:
             p["harvest_range"] = f"{h_min} days"
         elif h_max is not None:
@@ -1015,10 +1016,10 @@ def _coerce_int(v) -> int | None:
         return None
     try:
         return int(v)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         try:
             return int(float(v))
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             return None
 
 

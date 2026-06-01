@@ -20,7 +20,6 @@ import logging
 import time
 
 from aiohttp.web import Response
-
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
@@ -32,14 +31,14 @@ from .api import (
     VerdantlyRateLimitError,
 )
 from .const import (
-    DOMAIN,
     CONF_API_KEY,
     CONF_WEATHER_ENTITY,
+    DOMAIN,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
-_HTTP_API_VERSION = "1.1.1"
+_HTTP_API_VERSION = "1.1.4"
 
 
 def async_register_views(hass: HomeAssistant) -> None:

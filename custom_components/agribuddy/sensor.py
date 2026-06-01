@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any
+from typing import Any, ClassVar
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -21,12 +21,12 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.helpers import entity_registry as er
 
-from .const import DOMAIN, EVENT_HARVESTED, EVENT_DEAD
+from .const import DOMAIN, EVENT_DEAD, EVENT_HARVESTED
 from .coordinator import AgribuddyCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -83,7 +83,7 @@ class WeatherMirror(CoordinatorEntity[AgribuddyCoordinator], SensorEntity):
     _attr_has_entity_name = True
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    _UNIT_KEY_MAP = {
+    _UNIT_KEY_MAP: ClassVar[dict[str, str]] = {
         "temperature": "temperature_unit",
         "humidity": "humidity_unit",
         "wind_speed": "wind_speed_unit",
@@ -141,7 +141,7 @@ class PlantSensor(CoordinatorEntity[AgribuddyCoordinator], SensorEntity):
         False  # We want the plant's display name to be the full entity name
     )
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options = ["scheduled", "healthy", "thirsty", "danger", "harvested", "dead"]
+    _attr_options: ClassVar[list[str]] = ["scheduled", "healthy", "thirsty", "danger", "harvested", "dead"]
     _attr_translation_key = "plant_status"
 
     def __init__(self, coord, entry, plant_id, plant_name: str = ""):

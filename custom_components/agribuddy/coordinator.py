@@ -19,16 +19,16 @@ from __future__ import annotations
 
 import logging
 from datetime import date, timedelta
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from homeassistant.core import HomeAssistant, Event, callback
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
-    DOMAIN,
-    DEFAULT_UPDATE_INTERVAL,
     DEFAULT_FROST_THRESHOLD_C,
+    DEFAULT_UPDATE_INTERVAL,
+    DOMAIN,
     EVENT_FROST_ALERT,
 )
 
@@ -223,7 +223,7 @@ class AgribuddyCoordinator(DataUpdateCoordinator):
             return False
         try:
             return float(low) <= float(DEFAULT_FROST_THRESHOLD_C)
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             return False
 
     @staticmethod
@@ -241,7 +241,7 @@ class AgribuddyCoordinator(DataUpdateCoordinator):
             try:
                 if float(precip) > 0:
                     return True
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 pass
         cond = (weather.get("condition") or "").lower().replace("-", "_")
         rain_keywords = (

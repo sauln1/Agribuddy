@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 
 import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -15,37 +14,37 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import (
     VerdantlyApiClient,
+    VerdantlyApiError,
     VerdantlyAuthError,
     VerdantlyConnectionError,
-    VerdantlyApiError,
     VerdantlyRateLimitError,
 )
 from .api_usage import ApiUsageTracker
 from .const import (
-    DOMAIN,
-    CONF_API_KEY,
-    CONF_WEATHER_ENTITY,
-    CONF_UPDATE_INTERVAL,
-    DEFAULT_UPDATE_INTERVAL,
-    SERVICE_ADD_PLANT,
-    SERVICE_REMOVE_PLANT,
-    SERVICE_LOG_EVENT,
-    SERVICE_REMOVE_EVENT,
-    SERVICE_UPDATE_OVERRIDES,
-    SERVICE_UPDATE_PLANT,
+    ATTR_EVENT_DATE,
+    ATTR_EVENT_ID,
+    ATTR_EVENT_NOTE,
+    ATTR_EVENT_TYPE,
+    ATTR_LOCATION,
     ATTR_PLANT_ID,
     ATTR_PLANT_NAME,
     ATTR_SPECIES_ID,
-    ATTR_START_TYPE,
     ATTR_START_DATE,
-    ATTR_LOCATION,
-    ATTR_EVENT_ID,
-    ATTR_EVENT_TYPE,
-    ATTR_EVENT_NOTE,
-    ATTR_EVENT_DATE,
-    MANUAL_EVENT_TYPES,
-    START_TYPES,
+    ATTR_START_TYPE,
+    CONF_API_KEY,
+    CONF_UPDATE_INTERVAL,
+    CONF_WEATHER_ENTITY,
+    DEFAULT_UPDATE_INTERVAL,
+    DOMAIN,
     EVENT_PLANTED,
+    MANUAL_EVENT_TYPES,
+    SERVICE_ADD_PLANT,
+    SERVICE_LOG_EVENT,
+    SERVICE_REMOVE_EVENT,
+    SERVICE_REMOVE_PLANT,
+    SERVICE_UPDATE_OVERRIDES,
+    SERVICE_UPDATE_PLANT,
+    START_TYPES,
 )
 from .coordinator import AgribuddyCoordinator
 from .http_api import async_register_views
@@ -495,7 +494,7 @@ def _register_services(hass: HomeAssistant) -> None:
             return
         # If start_date changed, the synthetic "planted" event we created at
         # add-time is now stale (still on the old date). Re-anchor it.
-        if "start_date" in kw and kw["start_date"]:
+        if kw.get("start_date"):
             try:
                 await store.async_reanchor_planted_event(pid, kw["start_date"])
             except Exception as err:

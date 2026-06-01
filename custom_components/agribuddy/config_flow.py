@@ -5,15 +5,18 @@ from __future__ import annotations
 import logging
 
 import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.selector import EntitySelector, EntitySelectorConfig
 
 from .const import (
-    DOMAIN, CONF_API_KEY, CONF_WEATHER_ENTITY,
-    CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL, DEFAULT_NAME,
+    CONF_API_KEY,
+    CONF_UPDATE_INTERVAL,
+    CONF_WEATHER_ENTITY,
+    DEFAULT_NAME,
+    DEFAULT_UPDATE_INTERVAL,
+    DOMAIN,
     VERDANTLY_SIGNUP_URL,
 )
 
