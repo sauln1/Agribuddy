@@ -333,8 +333,8 @@ class AgribuddyCoordinator(DataUpdateCoordinator):
         return (self.data or {}).get("plants", [])
 
     def get_plots(self) -> list:
-        """Enriched grow plots (each with a `plants` list). Excludes nothing
-        here — consumers filter out the virtual Unassigned plot as needed."""
+        """Enriched grow plots (each with a `plants` list). Consumers filter
+        out the virtual Unassigned plot as needed."""
         return (self.data or {}).get("plots", [])
 
     def is_frost_tonight(self) -> bool:

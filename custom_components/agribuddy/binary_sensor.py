@@ -22,7 +22,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, EVENT_DEAD, EVENT_HARVESTED
 from .coordinator import AgribuddyCoordinator
 from .sensor import plant_is_thirsty
 
@@ -43,6 +43,15 @@ def _device(entry: ConfigEntry) -> DeviceInfo:
     )
 
 
+def _is_terminal(p: dict) -> bool:
+    """True if the plant has a harvested or dead event (terminal state)."""
+    for e in p.get("events") or p.get("events_sorted") or []:
+        et = (e.get("type") or "").lower()
+        if et in (EVENT_DEAD, EVENT_HARVESTED):
+            return True
+    return False
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -51,8 +60,8 @@ async def async_setup_entry(
     coord: AgribuddyCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     mgr = PlotBinarySensorManager(hass, coord, entry, async_add_entities)
     coord.async_add_listener(mgr.refresh)
-    # Do an initial reconcile in case the first refresh already happened
-    # before this platform finished loading.
+    # Initial reconcile in case the first refresh already happened before
+    # this platform finished loading.
     mgr.refresh()
 
 
@@ -61,11 +70,16 @@ class PlotAllThirsty(CoordinatorEntity[AgribuddyCoordinator], BinarySensorEntity
     non-empty). Off otherwise. One entity per real grow plot."""
 
     _attr_has_entity_name = True
-    # No device_class — a plain on/off boolean, per user request (not
-    # surfaced as a "problem").
+    # No device_class — a plain on/off boolean, per design (not surfaced as
+    # a "problem").
 
-    def __init__(self, coord: AgribuddyCoordinator, entry: ConfigEntry,
-                 plot_id: str, plot_name: str) -> None:
+    def __init__(
+        self,
+        coord: AgribuddyCoordinator,
+        entry: ConfigEntry,
+        plot_id: str,
+        plot_name: str,
+    ) -> None:
         super().__init__(coord)
         self._entry = entry
         self._plot_id = plot_id
@@ -75,7 +89,6 @@ class PlotAllThirsty(CoordinatorEntity[AgribuddyCoordinator], BinarySensorEntity
 
     @property
     def name(self) -> str:
-        # e.g. "Veggie bed all thirsty"
         return f"{self._plot_name} all thirsty"
 
     @property
@@ -88,21 +101,21 @@ class PlotAllThirsty(CoordinatorEntity[AgribuddyCoordinator], BinarySensorEntity
                 return pl
         return None
 
+    def _waterable(self, plot: dict) -> list[dict]:
+        """Plants in the plot that are active and waterable — excludes
+        terminal (harvested/dead) and scheduled plants."""
+        return [
+            p
+            for p in (plot.get("plants") or [])
+            if not p.get("is_scheduled") and not _is_terminal(p)
+        ]
+
     @property
     def is_on(self) -> bool:
         plot = self._plot()
         if not plot:
             return False
-        plants = plot.get("plants") or []
-        # Only consider plants that are in active, waterable states. Terminal
-        # (harvested/dead) and scheduled plants are not counted toward the
-        # "all thirsty" determination — they can't be thirsty, and a plot of
-        # only-harvested plants should not read as all-thirsty.
-        waterable = [
-            p for p in plants
-            if not p.get("is_scheduled")
-            and not _is_terminal(p)
-        ]
+        waterable = self._waterable(plot)
         if not waterable:
             # Empty (or only terminal/scheduled) plot → default False.
             return False
@@ -113,29 +126,16 @@ class PlotAllThirsty(CoordinatorEntity[AgribuddyCoordinator], BinarySensorEntity
         plot = self._plot()
         if not plot:
             return {"plot_id": self._plot_id, "plot_name": self._plot_name}
-        plants = plot.get("plants") or []
-        waterable = [
-            p for p in plants
-            if not p.get("is_scheduled") and not _is_terminal(p)
-        ]
+        waterable = self._waterable(plot)
         thirsty = [p for p in waterable if plant_is_thirsty(p)]
         return {
             "plot_id": self._plot_id,
             "plot_name": plot.get("name") or self._plot_name,
-            "plant_count": len(plants),
+            "plant_count": len(plot.get("plants") or []),
             "waterable_count": len(waterable),
             "thirsty_count": len(thirsty),
             "thirsty_plants": [p.get("name") for p in thirsty],
         }
-
-
-def _is_terminal(p: dict) -> bool:
-    """True if the plant has a harvested or dead event (terminal state)."""
-    for e in (p.get("events") or p.get("events_sorted") or []):
-        et = (e.get("type") or "").lower()
-        if et in ("harvested", "dead"):
-            return True
-    return False
 
 
 class PlotBinarySensorManager:
