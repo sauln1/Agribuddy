@@ -24,20 +24,21 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import date, datetime, timedelta as _td
+from datetime import date, datetime
+from datetime import timedelta as _td
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .const import (
+    EVENT_DEAD,
+    EVENT_FERTILIZED,
+    EVENT_HARVESTED,
+    EVENT_PLANTED,
+    EVENT_RAIN_DETECTED,
+    EVENT_WATERED,
     STORAGE_KEY,
     STORAGE_VERSION,
-    EVENT_WATERED,
-    EVENT_FERTILIZED,
-    EVENT_RAIN_DETECTED,
-    EVENT_PLANTED,
-    EVENT_HARVESTED,
-    EVENT_DEAD,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -58,7 +59,7 @@ def _days_since(iso: str | None) -> int | None:
         return None
     try:
         return (date.today() - date.fromisoformat(iso[:10])).days
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return None
 
 
@@ -1015,10 +1016,10 @@ def _coerce_int(v) -> int | None:
         return None
     try:
         return int(v)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         try:
             return int(float(v))
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             return None
 
 
