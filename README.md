@@ -21,7 +21,6 @@ In v1.2.0, we're reworking a lot of the UI and functions in order to give a more
 - **Event Renaming.** The **"dead" state was renamed "removed."****** to cover a more general "plant isn't there" event.
 - **Refreshed look.** The Default theme is now a blue/dark-grey palette with an orange accent. The Home Assistant theme continues to follow your HA theme variables.
 
---
 
 ## **Upgrading from 1.1.x note:**
 existing plants automatically pull their richer plant data (care instructions, mature size, growth type) the first time you open them after updating — this costs **1 API call per plant, only once, only when you open it**. Logged "dead" events are migrated to "removed" automatically on first load.
