@@ -22,7 +22,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, EVENT_DEAD, EVENT_HARVESTED
+from .const import DOMAIN, EVENT_HARVESTED, EVENT_REMOVED
 from .coordinator import AgribuddyCoordinator
 from .sensor import plant_is_thirsty
 
@@ -47,7 +47,7 @@ def _is_terminal(p: dict) -> bool:
     """True if the plant has a harvested or dead event (terminal state)."""
     for e in p.get("events") or p.get("events_sorted") or []:
         et = (e.get("type") or "").lower()
-        if et in (EVENT_DEAD, EVENT_HARVESTED):
+        if et in (EVENT_REMOVED, EVENT_HARVESTED):
             return True
     return False
 

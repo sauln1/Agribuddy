@@ -106,10 +106,12 @@ class PlantStore:
         # cache from growing unbounded while preserving season-view data.
         archived = self._archive_old_deleted_plants()
         migrated = await self._migrate_location_to_plot_id()
+        renamed = await self._migrate_dead_to_removed()
         _LOGGER.debug(
             "Agribuddy: loaded %d plants (%d soft-deleted, kept for Recent), "
             "%d plots, %d archived (history only), %d weather-log entries, "
-            "archived %d this load, migrated %d location→plot_id",
+            "archived %d this load, migrated %d location→plot_id, "
+            "renamed %d dead→removed events",
             len(self._data["plants"]),
             sum(1 for p in self._data["plants"].values() if p.get("deleted_at")),
             len(self._data["plots"]),
@@ -117,7 +119,45 @@ class PlantStore:
             len(self._data["weather_log"]),
             archived,
             migrated,
+            renamed,
         )
+
+    async def _migrate_dead_to_removed(self) -> int:
+        """One-time migration: rename stored event type "dead" → "removed".
+
+        v1.2.0 renamed the terminal death event from "dead" to "removed"
+        everywhere. Plants logged under earlier versions have events with
+        type "dead" in their stored event lists (and in archived records);
+        without this rename those events would no longer match the terminal
+        logic (which now looks for "removed") and the affected plants would
+        stop showing their end state.
+
+        Walks every active plant, soft-deleted plant, and archived record,
+        rewriting any event whose type is exactly "dead" to "removed".
+
+        Idempotent: once rewritten there are no "dead" events left, so later
+        loads find nothing to do. Returns the number of events rewritten.
+        """
+        renamed = 0
+
+        def _fix(events: list) -> int:
+            n = 0
+            for e in events or []:
+                if (e.get("type") or "").lower() == "dead":
+                    e["type"] = "removed"
+                    n += 1
+            return n
+
+        for plant in self._data["plants"].values():
+            renamed += _fix(plant.get("events"))
+        for rec in self._data.get("archived_plants", {}).values():
+            renamed += _fix(rec.get("events"))
+        if renamed:
+            await self._save()
+            _LOGGER.info(
+                "Agribuddy: migrated %d 'dead' event(s) to 'removed'", renamed
+            )
+        return renamed
 
     async def _migrate_location_to_plot_id(self) -> int:
         """One-time migration: convert legacy free-text `location` values to

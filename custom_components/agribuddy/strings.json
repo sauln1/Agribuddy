@@ -10,9 +10,11 @@
       },
       "weather": {
         "title": "Pick your weather entity",
-        "description": "Choose any HA entity that surfaces current weather. Agribuddy reads its state for rain/snow detection and its attributes for frost forecasting. Doesn't have to be a `weather.*` entity \u2014 a sensor or template entity works too.",
+        "description": "Choose any HA entity that surfaces current weather. Agribuddy reads its state for rain/snow detection and its attributes for frost forecasting. Doesn't have to be a `weather.*` entity \u2014 a sensor or template entity works too. You can also enter your Hardiness Zone Range (any system \u2014 USDA, RHS, etc.); leave blank to skip.",
         "data": {
-          "weather_entity": "Weather entity"
+          "weather_entity": "Weather entity",
+          "hardiness_zone_low": "Hardiness zone \u2014 low (optional, e.g. 5a)",
+          "hardiness_zone_high": "Hardiness zone \u2014 high (optional, e.g. 9b)"
         }
       }
     },
@@ -34,7 +36,9 @@
         "title": "Agribuddy options",
         "data": {
           "update_interval": "Update interval (minutes \u2014 default 1440, i.e. 24h)",
-          "weather_entity": "Weather entity"
+          "weather_entity": "Weather entity",
+          "hardiness_zone_low": "Hardiness zone \u2014 low",
+          "hardiness_zone_high": "Hardiness zone \u2014 high"
         }
       }
     }

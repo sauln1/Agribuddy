@@ -26,7 +26,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, EVENT_DEAD, EVENT_HARVESTED
+from .const import DOMAIN, EVENT_HARVESTED, EVENT_REMOVED
 from .coordinator import AgribuddyCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ def plant_is_thirsty(p: dict) -> bool:
     events = p.get("events") or p.get("events_sorted") or []
     for e in events:
         et = (e.get("type") or "").lower()
-        if et in (EVENT_DEAD, EVENT_HARVESTED):
+        if et in (EVENT_REMOVED, EVENT_HARVESTED):
             return False
     if p.get("is_scheduled"):
         return False
@@ -171,7 +171,7 @@ class PlantSensor(CoordinatorEntity[AgribuddyCoordinator], SensorEntity):
         False  # We want the plant's display name to be the full entity name
     )
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options: ClassVar[list[str]] = ["scheduled", "healthy", "thirsty", "danger", "harvested", "dead"]
+    _attr_options: ClassVar[list[str]] = ["scheduled", "healthy", "thirsty", "danger", "harvested", "removed"]
     _attr_translation_key = "plant_status"
 
     def __init__(self, coord, entry, plant_id, plant_name: str = ""):
@@ -206,7 +206,7 @@ class PlantSensor(CoordinatorEntity[AgribuddyCoordinator], SensorEntity):
             "thirsty": "mdi:water-alert",
             "danger": "mdi:snowflake-alert",
             "harvested": "mdi:basket-check",
-            "dead": "mdi:leaf-off",
+            "removed": "mdi:leaf-off",
         }.get(state, "mdi:sprout")
 
     @property
@@ -228,8 +228,8 @@ class PlantSensor(CoordinatorEntity[AgribuddyCoordinator], SensorEntity):
         has_harvested = False
         for e in events:
             et = (e.get("type") or "").lower()
-            if et == EVENT_DEAD:
-                return "dead"
+            if et == EVENT_REMOVED:
+                return "removed"
             if et == EVENT_HARVESTED:
                 has_harvested = True
         if has_harvested:

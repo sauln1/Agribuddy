@@ -14,6 +14,8 @@ from .const import (
     CONF_API_KEY,
     CONF_UPDATE_INTERVAL,
     CONF_WEATHER_ENTITY,
+    CONF_ZONE_HIGH,
+    CONF_ZONE_LOW,
     DEFAULT_NAME,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
@@ -81,6 +83,10 @@ class AgribuddyConfigFlow(ConfigFlow, domain=DOMAIN):
                 data={
                     CONF_API_KEY:        self._api_key,
                     CONF_WEATHER_ENTITY: self._weather_entity,
+                    # Optional hardiness zone range (free text, any system).
+                    # Stored even when blank so the keys always exist.
+                    CONF_ZONE_LOW:  (user_input.get(CONF_ZONE_LOW) or "").strip(),
+                    CONF_ZONE_HIGH: (user_input.get(CONF_ZONE_HIGH) or "").strip(),
                 },
                 options={CONF_UPDATE_INTERVAL: DEFAULT_UPDATE_INTERVAL},
             )
@@ -88,6 +94,8 @@ class AgribuddyConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="weather",
             data_schema=vol.Schema({
                 vol.Required(CONF_WEATHER_ENTITY): _ENTITY_SELECTOR,
+                vol.Optional(CONF_ZONE_LOW, default=""): str,
+                vol.Optional(CONF_ZONE_HIGH, default=""): str,
             }),
         )
 
@@ -107,18 +115,28 @@ class AgribuddyOptionsFlow(OptionsFlow):
             # status endpoint (which historically reads data) and the options
             # flow (which writes options) stay in sync. The integration's
             # async_setup_entry reads options-first with a data fallback.
+            merged_data = dict(self._entry.data)
             new_weather = user_input.get(CONF_WEATHER_ENTITY)
             if new_weather and new_weather != self._entry.data.get(CONF_WEATHER_ENTITY):
-                merged_data = dict(self._entry.data)
                 merged_data[CONF_WEATHER_ENTITY] = new_weather
-                self.hass.config_entries.async_update_entry(
-                    self._entry, data=merged_data,
-                )
+            # Mirror the zone range into data as well (kept in sync with the
+            # card Settings overlay, which writes via the update_config view).
+            merged_data[CONF_ZONE_LOW] = (user_input.get(CONF_ZONE_LOW) or "").strip()
+            merged_data[CONF_ZONE_HIGH] = (user_input.get(CONF_ZONE_HIGH) or "").strip()
+            self.hass.config_entries.async_update_entry(
+                self._entry, data=merged_data,
+            )
             return self.async_create_entry(title="", data=user_input)
         current_interval = self._entry.options.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
         current_weather  = self._entry.options.get(
             CONF_WEATHER_ENTITY,
             self._entry.data.get(CONF_WEATHER_ENTITY, ""),
+        )
+        current_zone_low = self._entry.options.get(
+            CONF_ZONE_LOW, self._entry.data.get(CONF_ZONE_LOW, ""),
+        )
+        current_zone_high = self._entry.options.get(
+            CONF_ZONE_HIGH, self._entry.data.get(CONF_ZONE_HIGH, ""),
         )
         return self.async_show_form(
             step_id="init",
@@ -127,6 +145,8 @@ class AgribuddyOptionsFlow(OptionsFlow):
                     vol.All(vol.Coerce(int), vol.Range(min=60, max=10080)),
                 vol.Required(CONF_WEATHER_ENTITY, default=current_weather):
                     _ENTITY_SELECTOR,
+                vol.Optional(CONF_ZONE_LOW, default=current_zone_low): str,
+                vol.Optional(CONF_ZONE_HIGH, default=current_zone_high): str,
             }),
         )
 

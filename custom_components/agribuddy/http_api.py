@@ -33,12 +33,14 @@ from .api import (
 from .const import (
     CONF_API_KEY,
     CONF_WEATHER_ENTITY,
+    CONF_ZONE_HIGH,
+    CONF_ZONE_LOW,
     DOMAIN,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
-_HTTP_API_VERSION = "1.1.5"
+_HTTP_API_VERSION = "1.2.0"
 
 
 def async_register_views(hass: HomeAssistant) -> None:
@@ -57,6 +59,7 @@ def async_register_views(hass: HomeAssistant) -> None:
         ("AgribuddyTestConnectionView", AgribuddyTestConnectionView),
         ("AgribuddySearchView", AgribuddySearchView),
         ("AgribuddySpeciesView", AgribuddySpeciesView),
+        ("AgribuddyBackfillView", AgribuddyBackfillView),
         ("AgribuddyUpdateConfigView", AgribuddyUpdateConfigView),
         ("AgribuddyPlotsView", AgribuddyPlotsView),
         ("AgribuddyPlotCreateView", AgribuddyPlotCreateView),
@@ -196,6 +199,14 @@ class AgribuddyStatusView(HomeAssistantView):
             "api_key_masked": "set" if api_key else "not set",
             "weather_entity": entry.options.get(
                 CONF_WEATHER_ENTITY, entry.data.get(CONF_WEATHER_ENTITY, "not set")
+            ),
+            # v1.2.0 — user-entered hardiness zone range (options-first, with
+            # data fallback). The card renders "Zone {low}–{high}" or "Zone –".
+            "hardiness_zone_low": entry.options.get(
+                CONF_ZONE_LOW, entry.data.get(CONF_ZONE_LOW, "")
+            ),
+            "hardiness_zone_high": entry.options.get(
+                CONF_ZONE_HIGH, entry.data.get(CONF_ZONE_HIGH, "")
             ),
             "api_client_ready": api_ready,
             "http_api_version": _HTTP_API_VERSION,
@@ -451,6 +462,15 @@ def _normalize_verdantly_variety(r: dict) -> dict:
             # Hardiness zones — useful even on the search preview
             "hardiness_zone_min": gr.get("minGrowingZone"),
             "hardiness_zone_max": gr.get("maxGrowingZone"),
+            # v1.2.0 — fields the radar chart + care dropdowns consume. These
+            # come from the richer /name endpoint. Surfaced flat so the card
+            # doesn't have to dig, but the full nested object is preserved in
+            # `out` (= dict(r)) too, which is what gets cached as species_data.
+            "growing_zone_range": gr.get("growingZoneRange") or "",
+            "mature_height": (r.get("growthDetails") or {}).get("matureHeight"),
+            "mature_height_unit": (r.get("growthDetails") or {}).get("unit") or "",
+            "growth_type": (r.get("growthDetails") or {}).get("growthType") or "",
+            "growth_period": (r.get("growthDetails") or {}).get("growthPeriod") or "",
         }
     )
     return out
@@ -529,6 +549,137 @@ class AgribuddySpeciesView(HomeAssistantView):
         )
 
 
+def _species_data_is_stale(sd: dict) -> bool:
+    """True if a plant's cached species_data lacks the richer fields the
+    v1.2.0 radar chart + care dropdowns need.
+
+    Plants added before v1.2.0 came from the /search endpoint, which didn't
+    return the top-level careInstructions object or growthDetails.matureHeight/
+    growthType. We detect "old shape" by the absence of those fields and let
+    the card trigger a one-time lazy backfill from /name.
+    """
+    if not sd:
+        return False  # nothing to refresh (no cached data at all)
+    care = sd.get("careInstructions")
+    gd = sd.get("growthDetails") or {}
+    has_care_obj = isinstance(care, dict) and bool(care)
+    has_growth = gd.get("matureHeight") is not None or bool(gd.get("growthType"))
+    return not (has_care_obj or has_growth)
+
+
+class AgribuddyBackfillView(HomeAssistantView):
+    """Lazy, on-demand refresh of one plant's species_data from the richer
+    /name endpoint.
+
+    v1.2.0 switched the search endpoint to /v1/plants/varieties/name, which
+    carries fields the radar chart + care dropdowns need. Plants added under
+    earlier versions have stale species_data. Rather than a mass refresh
+    (which could blow the 25-call/month quota), the card calls this endpoint
+    the first time it opens a plant whose cached data is stale. It costs ONE
+    API call, only for that plant, only once (afterwards the data is no longer
+    stale so the card won't ask again).
+
+    POST body: {"plant_id": "<uuid>"}
+    Returns: {"refreshed": bool, "species_data": {...}} or an error.
+    """
+
+    url = "/api/agribuddy/backfill_species"
+    name = "api:agribuddy:backfill_species"
+    requires_auth = True
+
+    def __init__(self, hass):
+        self._hass = hass
+
+    async def post(self, request):
+        try:
+            body = await request.json()
+        except Exception:
+            return _json({"error": "bad_json", "message": "Invalid JSON body."}, 400)
+        plant_id = str((body or {}).get("plant_id") or "").strip()
+        if not plant_id:
+            return _json(
+                {"error": "missing_plant_id", "message": "Provide plant_id."}, 400
+            )
+
+        store = _get_store(self._hass)
+        api = _get_api(self._hass)
+        if store is None or api is None:
+            return _json(
+                {"error": "api_unavailable", "message": "Agribuddy not ready."}, 503
+            )
+
+        plant = store._data["plants"].get(plant_id)  # noqa: SLF001
+        if not plant:
+            return _json(
+                {"error": "not_found", "message": f"No plant {plant_id}."}, 404
+            )
+
+        sd = plant.get("species_data") or {}
+        # Guard: only spend an API call if the data is actually stale. The card
+        # also checks, but double-checking here prevents a misbehaving caller
+        # from burning quota.
+        if not _species_data_is_stale(sd):
+            return _json({"refreshed": False, "species_data": sd, "reason": "fresh"})
+
+        # Re-search by the plant's display/variety name and pick the best match
+        # (prefer an exact id match, then exact name, else the first result).
+        query = (
+            plant.get("name")
+            or sd.get("name")
+            or (sd.get("species") or {}).get("commonName")
+            or ""
+        ).strip()
+        if not query:
+            return _json(
+                {"error": "no_query", "message": "Plant has no name to search by."},
+                422,
+            )
+
+        try:
+            results_raw, _url = await api.search_plants(query)
+        except VerdantlyAuthError as err:
+            return _json({"error": "invalid_auth", "message": str(err)}, 401)
+        except VerdantlyRateLimitError as err:
+            return _json({"error": "rate_limited", "message": str(err)}, 429)
+        except VerdantlyApiError as err:
+            return _json({"error": "api_error", "message": str(err)}, 502)
+        except Exception as err:
+            _LOGGER.exception("Agribuddy: backfill search failed for %s", plant_id)
+            return _json({"error": "unknown", "message": str(err)}, 500)
+
+        results = [r for r in (results_raw or []) if isinstance(r, dict)]
+        if not results:
+            return _json(
+                {"error": "no_results", "message": f"No matches for '{query}'."}, 404
+            )
+
+        want_id = str(plant.get("species_id") or sd.get("id") or "")
+        chosen = None
+        if want_id:
+            chosen = next((r for r in results if str(r.get("id")) == want_id), None)
+        if chosen is None:
+            chosen = next(
+                (
+                    r
+                    for r in results
+                    if (r.get("name") or "").strip().lower() == query.lower()
+                ),
+                None,
+            )
+        if chosen is None:
+            chosen = results[0]
+
+        normalized = _normalize_verdantly_variety(chosen)
+        await store.async_update_plant(plant_id, species_data=normalized)
+        caches = _get_caches(self._hass)
+        if caches is not None and normalized.get("id"):
+            caches["species_cache"][str(normalized["id"])] = normalized
+        _LOGGER.info(
+            "Agribuddy: backfilled species_data for plant %s from /name", plant_id
+        )
+        return _json({"refreshed": True, "species_data": normalized})
+
+
 class AgribuddyUpdateConfigView(HomeAssistantView):
     url = "/api/agribuddy/update_config"
     name = "api:agribuddy:update_config"
@@ -556,6 +707,11 @@ class AgribuddyUpdateConfigView(HomeAssistantView):
         new_data = dict(entry.data)
         new_options = dict(entry.options)
         changed = False
+        # Track whether a reload is actually required. Weather-entity changes
+        # need a reload (the coordinator re-resolves the entity); zone changes
+        # are display-only and don't, so we avoid the disruptive reload for
+        # zone-only edits.
+        needs_reload = False
 
         if body.get("weather_entity"):
             # Mirror into BOTH data and options so the integration setup
@@ -570,11 +726,27 @@ class AgribuddyUpdateConfigView(HomeAssistantView):
             new_options[CONF_WEATHER_ENTITY] = new_value
             if effective_old != new_value:
                 changed = True
+                needs_reload = True
                 _LOGGER.info(
                     "Agribuddy: weather entity changed '%s' → '%s'",
                     effective_old,
                     new_value,
                 )
+
+        # v1.2.0 — hardiness zone range (two free-text values). Either may be
+        # present in the body; an empty string is a valid "cleared" value, so
+        # we check membership, not truthiness. Mirrored into data + options
+        # like the weather entity. No reload needed (display-only).
+        for key in (CONF_ZONE_LOW, CONF_ZONE_HIGH):
+            if key in body:
+                new_value = str(body.get(key) or "").strip()
+                effective_old = entry.options.get(
+                    key, new_data.get(key, "")
+                )
+                new_data[key] = new_value
+                new_options[key] = new_value
+                if effective_old != new_value:
+                    changed = True
 
         if not changed:
             return _json({"ok": True, "message": "Nothing to update."})
@@ -584,12 +756,14 @@ class AgribuddyUpdateConfigView(HomeAssistantView):
             data=new_data,
             options=new_options,
         )
-        self._hass.async_create_task(
-            self._hass.config_entries.async_reload(entry.entry_id)
-        )
-        return _json(
-            {"ok": True, "message": "Settings saved. Integration is reloading."}
-        )
+        if needs_reload:
+            self._hass.async_create_task(
+                self._hass.config_entries.async_reload(entry.entry_id)
+            )
+            return _json(
+                {"ok": True, "message": "Settings saved. Integration is reloading."}
+            )
+        return _json({"ok": True, "message": "Settings saved."})
 
 
 class AgribuddyPlotsView(HomeAssistantView):
