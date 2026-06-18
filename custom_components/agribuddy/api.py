@@ -5,7 +5,7 @@ Auth requires TWO headers (RapidAPI's standard):
     x-rapidapi-host: verdantly-gardening-api.p.rapidapi.com
 
 Endpoint we use:
-    GET /v1/plants/varieties/search?q=<term>&page=1&sortOrder=asc
+    GET /v1/plants/varieties/name?q=<term>&page=1
         (more params accepted; we keep it minimal)
 
 Response envelope:
@@ -158,7 +158,7 @@ class VerdantlyApiClient:
     async def validate(self) -> bool:
         """Validate the key with a single cheap search call.
         Costs one API request against the user's RapidAPI quota."""
-        params = {"q": "tomato", "page": 1, "sortOrder": "asc"}
+        params = {"q": "tomato", "page": 1}
         await self._get(VERDANTLY_SEARCH_ENDPOINT, params)
         return True
 
@@ -186,7 +186,6 @@ class VerdantlyApiClient:
         params: dict[str, Any] = {
             "q": query,
             "page": 1,
-            "sortOrder": "asc",
         }
         _LOGGER.debug("Verdantly search: q=%r", query)
         resp, url_used = await self._get(VERDANTLY_SEARCH_ENDPOINT, params)

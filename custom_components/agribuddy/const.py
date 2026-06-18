@@ -7,6 +7,11 @@ DOMAIN = "agribuddy"
 CONF_API_KEY = "api_key"
 CONF_WEATHER_ENTITY = "weather_entity"
 CONF_UPDATE_INTERVAL = "update_interval"
+# v1.2.0 — user-entered hardiness zone range (free text, any system: USDA
+# "6a", RHS "H5", etc.). Two independent values shown as "low–high". Optional;
+# when blank the card shows "Zone –".
+CONF_ZONE_LOW = "hardiness_zone_low"
+CONF_ZONE_HIGH = "hardiness_zone_high"
 
 # ── Defaults ───────────────────────────────────────────────────────────────
 # 24-hour interval. The coordinator only reads weather entity values —
@@ -21,7 +26,11 @@ DEFAULT_NAME = "Agribuddy"
 #   x-rapidapi-host: verdantly-gardening-api.p.rapidapi.com
 VERDANTLY_BASE_URL = "https://verdantly-gardening-api.p.rapidapi.com"
 VERDANTLY_HOST = "verdantly-gardening-api.p.rapidapi.com"
-VERDANTLY_SEARCH_ENDPOINT = "/v1/plants/varieties/search"
+# v1.2.0: switched from /search to /name. The /name endpoint returns the same
+# nested shape PLUS the richer fields the radar chart + care-instruction
+# dropdowns need (careInstructions.plantingInstructions.*, growthDetails.*).
+# Query params: ?q=<term>&page=1  (no sortOrder — /name doesn't use it).
+VERDANTLY_SEARCH_ENDPOINT = "/v1/plants/varieties/name"
 # RapidAPI marketplace page where users subscribe + get their API key
 VERDANTLY_SIGNUP_URL = "https://rapidapi.com/verdantly-team-verdantly-team-default/api/verdantly-gardening-api"
 
@@ -56,7 +65,8 @@ PERENUAL_FREE_DAILY_LIMIT = 0
 # ── Plant start types ──────────────────────────────────────────────────────
 START_TYPE_SEED = "seed"
 START_TYPE_TRANSPLANT = "transplant"
-START_TYPES = [START_TYPE_SEED, START_TYPE_TRANSPLANT]
+START_TYPE_INDOOR = "indoor_start"  # v1.2.0 — started indoors before transplant
+START_TYPES = [START_TYPE_SEED, START_TYPE_INDOOR, START_TYPE_TRANSPLANT]
 
 # ── Manual event types ─────────────────────────────────────────────────────
 EVENT_WATERED = "watered"
@@ -66,9 +76,14 @@ EVENT_BLIGHT = "blight"
 EVENT_SNOW = "snow"
 EVENT_HARVESTED = "harvested"
 EVENT_TRANSPLANTED = "transplanted"
+EVENT_INDOOR_START = "indoor_start"  # v1.2.0 — plant started indoors
 EVENT_SPROUTED = "sprouted"
 EVENT_PLANTED = "planted"
-EVENT_DEAD = "dead"
+# v1.2.0: the terminal "plant died / was pulled" event was renamed dead→removed.
+# EVENT_DEAD kept as a backwards-compat alias so any lingering import resolves;
+# a one-time store migration rewrites stored "dead" events to "removed".
+EVENT_REMOVED = "removed"
+EVENT_DEAD = EVENT_REMOVED
 EVENT_OTHER = "other"
 
 MANUAL_EVENT_TYPES = [
@@ -79,8 +94,9 @@ MANUAL_EVENT_TYPES = [
     EVENT_SNOW,
     EVENT_HARVESTED,
     EVENT_TRANSPLANTED,
+    EVENT_INDOOR_START,
     EVENT_SPROUTED,
-    EVENT_DEAD,
+    EVENT_REMOVED,
     EVENT_OTHER,
 ]
 
