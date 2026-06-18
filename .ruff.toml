@@ -46,7 +46,7 @@ ignore = [
 	"ARG001", # unused
 	"PLR0913", # too many arguments in function
 	"C901", # too complicated
-	"PLR0912", # too maany branches
+	"PLR0912", # too many branches
 	"PLR0915", # too many statements
 	"ARG005", # unused
 	"ARG002", # unused
@@ -56,6 +56,7 @@ ignore = [
 	"FBT002", # Boolean-typed positional argument in function definition
 	"ANN002", # missing type annotation
 	"RUF001", # ambiguous character
+	"RUF003", # en dash
 ]
 
 [lint.flake8-pytest-style]
