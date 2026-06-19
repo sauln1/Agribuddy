@@ -10,7 +10,7 @@ body:
     label: "System Health details"
     description: "Paste the data from the System Health card in Home Assistant (https://www.home-assistant.io/more-info/system-health#github-issues)"
   validations:
-    required: true
+    required: false
 - type: checkboxes
   attributes:
     label: Checklist
@@ -39,14 +39,14 @@ body:
       3.
       ...
   validations:
-    required: true
+    required: false
 - type: textarea
   attributes:
     label: "Debug logs"
     description: "To enable debug logs check this https://www.home-assistant.io/integrations/logger/, this **needs** to include _everything_ from startup of Home Assistant to the point where you encounter the issue."
     render: text
   validations:
-    required: true
+    required: false
 
 - type: textarea
   attributes:
