@@ -1094,6 +1094,13 @@ class PlantStore:
         # ── Description (replaced by care_instructions on the card) ───────
         p["description"] = ov.get("description") or sd.get("description") or ""
 
+        # ── Custom (user-created) plant flag ──────────────────────────────
+        # v1.2.1: plants the user creates by hand (not from the Verdantly API)
+        # carry is_custom=true in their species_data. Surfaced flat so the
+        # card can show a pencil badge next to the name in both the drill-down
+        # and the main-view plant list.
+        p["is_custom"] = bool(sd.get("is_custom"))
+
         # ── Fields we no longer surface but keep present for back-compat ──
         # APIFarmer/Flora era leftovers — empty strings/Nones so the card
         # doesn't throw on `.toLowerCase()` etc.

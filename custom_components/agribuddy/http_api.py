@@ -40,7 +40,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-_HTTP_API_VERSION = "1.2.0"
+_HTTP_API_VERSION = "1.2.1"
 
 
 def async_register_views(hass: HomeAssistant) -> None:
@@ -560,6 +560,11 @@ def _species_data_is_stale(sd: dict) -> bool:
     """
     if not sd:
         return False  # nothing to refresh (no cached data at all)
+    # Custom (user-created) plants have no Verdantly counterpart to backfill
+    # from — their data is whatever the user entered. Never mark them stale,
+    # or the card would fire a pointless backfill that can't succeed.
+    if sd.get("is_custom"):
+        return False
     care = sd.get("careInstructions")
     gd = sd.get("growthDetails") or {}
     has_care_obj = isinstance(care, dict) and bool(care)
