@@ -16,4 +16,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: rekpero/claude-bugbot-github-action@main
         with:
-          claude-setup-token: ${{ secrets.CLAUDE_SETUP_TOKEN }}
+          claude-setup-token: ${{ secrets.ANTHROPIC_API_KEY }}
