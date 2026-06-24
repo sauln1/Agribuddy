@@ -12,7 +12,7 @@ A Home Assistant integration + Lovelace card for tracking your garden. Plan grow
 ---
 # v1.2.1 UPDATE NOTES
 
-In v1.2.1, we're enabling a feature that will allow users to create their own plant definitions if their definition doesn't exist in the API. This may later be updated to directly reach out to the Verdantly 'submit a new plant' form once available.
+### In v1.2.1, we're enabling a feature that will allow users to create their own plant definitions if their definition doesn't exist in the API. This may later be updated to directly reach out to the Verdantly 'submit a new plant' form once available.
 ---
 ## Features
 
