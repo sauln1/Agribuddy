@@ -4,27 +4,15 @@ A Home Assistant integration + Lovelace card for tracking your garden. Plan grow
 
 <sup>* Integration developed with assistance from AI.</sup>
 
-![Version](https://img.shields.io/badge/version-1.2.0-1D9E75)
+![Version](https://img.shields.io/badge/version-1.2.1-1D9E75)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.1%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 [![HACS](https://img.shields.io/badge/HACS-default-orange.svg?style=flat-square)](https://hacs.xyz)
 
 ---
-# v1.2.0 UPDATE NOTES
+# v1.2.1 UPDATE NOTES
 
-In v1.2.0, we're reworking a lot of the UI and functions in order to give a more logical and useful user experience:
-
-- **Plant drill-down redesigned.** The plant image is replaced by a **Plant Profile radar chart + bar legend** (Sunlight, Water, Zones, Size, Growth, and an overall Care score). Care instructions are now **collapsible sections** (Start Indoors / Transplant Outdoors / Direct Sow / Harvesting).
-- **Per-plant calendar.** We've removed the main view calendar (which wasn't very useful) in exchange for a calendar in each plant's drill-down that has its own **Week** and **Season** view. The Season view draws a continuous, color-changing "bubble" timeline of the plant's lifecycle. The global calendar has been removed from the main view, and the **Plants list is now the main feature** of the dashboard.
-- **Hardiness zone.** Users may now enter their zone range in Settings which will be reflected as a "Zone" pill on the main view. Works with any system (USDA, RHS, etc.).
-- **New "Indoor start" stage** for plants started indoors before transplanting.
-- **Event Renaming.** The **"dead" state was renamed "removed."** to cover a more general "plant isn't there" event.
-- **Refreshed look.** The Default theme is now a blue/dark-grey palette with an orange accent. The Home Assistant theme continues to follow your HA theme variables.
-
-
-## **Upgrading from 1.1.x note:**
-existing plants automatically pull their richer plant data (care instructions, mature size, growth type) the first time you open them after updating — this costs **1 API call per plant, only once, only when you open it**. Logged "dead" events are migrated to "removed" automatically on first load.
-
+### In v1.2.1, we're enabling a feature that will allow users to create their own plant definitions if their definition doesn't exist in the API. This may later be updated to directly reach out to the Verdantly 'submit a new plant' form once available.
 ---
 ## Features
 
