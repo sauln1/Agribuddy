@@ -32,15 +32,17 @@ from .api import (
 )
 from .const import (
     CONF_API_KEY,
+    CONF_LAYOUT,
     CONF_WEATHER_ENTITY,
     CONF_ZONE_HIGH,
     CONF_ZONE_LOW,
+    DEFAULT_LAYOUT,
     DOMAIN,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
-_HTTP_API_VERSION = "1.2.1"
+_HTTP_API_VERSION = "1.2.2"
 
 
 def async_register_views(hass: HomeAssistant) -> None:
@@ -207,6 +209,10 @@ class AgribuddyStatusView(HomeAssistantView):
             ),
             "hardiness_zone_high": entry.options.get(
                 CONF_ZONE_HIGH, entry.data.get(CONF_ZONE_HIGH, "")
+            ),
+            # v1.2.2 — persisted card layout ("landscape"/"portrait").
+            "card_layout": entry.options.get(
+                CONF_LAYOUT, entry.data.get(CONF_LAYOUT, DEFAULT_LAYOUT)
             ),
             "api_client_ready": api_ready,
             "http_api_version": _HTTP_API_VERSION,
@@ -753,6 +759,19 @@ class AgribuddyUpdateConfigView(HomeAssistantView):
                 if effective_old != new_value:
                     changed = True
 
+        # v1.2.2 — card layout ("landscape"/"portrait"). No reload (display-only).
+        if CONF_LAYOUT in body:
+            lay = str(body.get(CONF_LAYOUT) or "").strip().lower()
+            if lay not in ("landscape", "portrait"):
+                lay = DEFAULT_LAYOUT
+            effective_old = entry.options.get(
+                CONF_LAYOUT, new_data.get(CONF_LAYOUT, DEFAULT_LAYOUT)
+            )
+            new_data[CONF_LAYOUT] = lay
+            new_options[CONF_LAYOUT] = lay
+            if effective_old != lay:
+                changed = True
+
         if not changed:
             return _json({"ok": True, "message": "Nothing to update."})
 
@@ -882,13 +901,16 @@ class AgribuddyPlotView(HomeAssistantView):
         if store is None:
             return _json({"error": "not_ready", "message": "Agribuddy not loaded."}, 503)
         plot = await store.async_update_plot(
-            plot_id, **{k: v for k, v in body.items() if k in {"name", "description"}}
+            plot_id,
+            **{k: v for k, v in body.items() if k in {"name", "description", "indoor"}},
         )
         if plot is None:
             return _json({"error": "not_found"}, 404)
         coord = _get_coordinator(self._hass)
         if coord:
             await coord.async_request_refresh()
+        # Notify the card so the plot view re-renders with the new indoor flag.
+        self._hass.bus.async_fire(f"{DOMAIN}_data_changed", {})
         return _json({"ok": True, "plot": plot})
 
     async def delete(self, request, plot_id: str):

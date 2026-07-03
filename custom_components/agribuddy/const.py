@@ -13,6 +13,12 @@ CONF_UPDATE_INTERVAL = "update_interval"
 CONF_ZONE_LOW = "hardiness_zone_low"
 CONF_ZONE_HIGH = "hardiness_zone_high"
 
+# v1.2.2 — card layout preference persisted on the backend so the user's
+# choice survives HA restarts / browser refreshes (localStorage alone reset).
+# One of "landscape" (default) or "portrait". ("auto" was removed.)
+CONF_LAYOUT = "card_layout"
+DEFAULT_LAYOUT = "landscape"
+
 # ── Defaults ───────────────────────────────────────────────────────────────
 # 24-hour interval. The coordinator only reads weather entity values —
 # species data is fetched once when a plant is added (via the search API)
