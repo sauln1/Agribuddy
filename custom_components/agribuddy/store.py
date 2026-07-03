@@ -451,6 +451,8 @@ class PlantStore:
         for k, v in kwargs.items():
             if k in {"name", "description"}:
                 plot[k] = v
+            elif k == "indoor":
+                plot["indoor"] = bool(v)
         await self._save()
         return plot
 
@@ -714,7 +716,18 @@ class PlantStore:
 
     async def async_log_rain_all(self, mm: float) -> None:
         note = f"{mm:.1f}mm detected" if mm > 0 else "Rain detected"
+        # v1.2.2 — plants in an INDOOR grow bed are sheltered from local rain,
+        # so they must not receive an auto rain_detected event (which would
+        # otherwise reset their days_since_watered as if they'd been watered).
+        indoor_plot_ids = {
+            pid
+            for pid, plot in self._data.get("plots", {}).items()
+            if plot.get("indoor")
+        }
         for pid in list(self._data["plants"]):
+            plant = self._data["plants"].get(pid, {})
+            if plant.get("plot_id") in indoor_plot_ids:
+                continue
             await self.async_log_event(pid, "rain_detected", note=note, auto=True)
 
     # ── Weather log (per-date observations for calendar icons) ───────────────

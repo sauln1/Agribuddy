@@ -1,6 +1,14 @@
 /**
- * Agribuddy Card  v1.2.4
+ * Agribuddy Card  v1.2.5
  * type: custom:agribuddy-card
+ *
+ * v1.2.5 — Layout persistence, Auto removed, Indoor/Outdoor beds
+ *  - Layout preference now persists on the integration backend, so it survives
+ *    HA restarts and browser refreshes (and is consistent across devices).
+ *  - Removed the "Auto" layout option entirely; default is Landscape.
+ *  - Grow bed drill-down: an Indoor/Outdoor toggle. Plants in an Indoor bed are
+ *    sheltered from local rain — the backend no longer logs an auto rain event
+ *    for them, so their watering schedule isn't reset by rainfall.
  *
  * v1.2.4 — Custom (user-created) plants
  *  - Add-plant overlay: a "Create Plant" button under the search bar opens a
@@ -1333,13 +1341,15 @@ class AgribuddyCard extends HTMLElement {
     this._plannerScale = "week";   // week | month
     this._plannerOffset = 0;       // weeks/months from current period
     // Layout preference — one of "auto" / "portrait" / "landscape". Stored
-    // in localStorage (no backend trip, no API quota burned). "auto" leans
-    // on a CSS media query so the host's viewport width decides; the two
-    // explicit values force one or the other regardless of viewport.
-    this._layoutPref = "auto";
+    // Layout preference — "portrait" or "landscape" ("auto" removed in v1.2.2).
+    // Source of truth is the backend config entry (survives HA restarts and is
+    // consistent across devices); localStorage is just an instant-apply cache
+    // read synchronously here so the first paint isn't wrong while /status
+    // loads. The backend value (from /status) overrides this once fetched.
+    this._layoutPref = "landscape";
     try {
       const stored = window.localStorage.getItem("agribuddy:layout");
-      if (stored === "portrait" || stored === "landscape" || stored === "auto") {
+      if (stored === "portrait" || stored === "landscape") {
         this._layoutPref = stored;
       }
     } catch (e) { /* localStorage may throw in restricted contexts */ }
@@ -1379,10 +1389,17 @@ class AgribuddyCard extends HTMLElement {
    * Accepts "auto" / "portrait" / "landscape". Anything else is ignored.
    */
   _setLayoutPref(pref) {
-    if (!["auto", "portrait", "landscape"].includes(pref)) return;
+    if (!["portrait", "landscape"].includes(pref)) return;
     this._layoutPref = pref;
+    // Cache locally for instant next-load paint...
     try { window.localStorage.setItem("agribuddy:layout", pref); } catch (e) { }
     this._applyLayoutClass();
+    // ...and persist to the backend so it survives restarts / other devices.
+    this._apiFetch("/update_config", {
+      method: "POST",
+      headers: { ...this._authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ card_layout: pref }),
+    }).catch(e => console.warn("Agribuddy: layout persist failed:", e));
   }
 
   /**
@@ -1454,6 +1471,16 @@ class AgribuddyCard extends HTMLElement {
       this._apiFetch("/status")
         .then(({ data }) => {
           this._apiStatusCache = data;
+          // v1.2.2 — the backend is the source of truth for layout (survives
+          // restarts). Apply it if it differs from our localStorage guess.
+          const backendLayout = data && data.card_layout;
+          if (backendLayout === "portrait" || backendLayout === "landscape") {
+            if (backendLayout !== this._layoutPref) {
+              this._layoutPref = backendLayout;
+              try { window.localStorage.setItem("agribuddy:layout", backendLayout); } catch (e) { }
+              this._applyLayoutClass();
+            }
+          }
           // Zone pill on the main view reads from status; re-render once it
           // arrives so the pill populates without waiting for another event.
           if (this._view === "main") this._render();
@@ -1628,7 +1655,7 @@ class AgribuddyCard extends HTMLElement {
 
       <div id="view-container"></div>
 
-      <div style="margin-top:14px;font-size:10px;color:var(--secondary-text-color);opacity:.45;text-align:right;user-select:none">agribuddy-v1.2.4</div>
+      <div style="margin-top:14px;font-size:10px;color:var(--secondary-text-color);opacity:.45;text-align:right;user-select:none">agribuddy-v1.2.5</div>
 
       ${this._tplPlantOverlay()}
       ${this._tplSettingsOverlay()}
@@ -1880,6 +1907,23 @@ class AgribuddyCard extends HTMLElement {
           ${plot.virtual ? "" : `<button class="btn btn-danger" id="remove-plot-btn">Remove plot</button>`}
         </div>
       </div>
+      ${plot.virtual ? "" : `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <span class="form-label" style="margin:0">Environment</span>
+        <div class="layout-toggle" role="group" aria-label="Grow bed environment">
+          <button type="button" class="env-toggle-btn layout-toggle-btn${plot.indoor ? "" : " active"}" data-env="outdoor"
+                  title="Exposed to local weather — rain counts as watering">
+            <span aria-hidden="true">🌤️</span> Outdoor
+          </button>
+          <button type="button" class="env-toggle-btn layout-toggle-btn${plot.indoor ? " active" : ""}" data-env="indoor"
+                  title="Sheltered — local rain does NOT water these plants">
+            <span aria-hidden="true">🏠</span> Indoor
+          </button>
+        </div>
+        <span style="font-size:11px;color:var(--secondary-text-color)">${plot.indoor
+          ? "Rain won't auto-water plants in this bed."
+          : "Rain auto-waters plants in this bed."}</span>
+      </div>`}
 
       <hr class="divider">
       <div class="sec-title">Plants in this plot</div>
@@ -1896,6 +1940,10 @@ class AgribuddyCard extends HTMLElement {
     if (waterAllBtn) waterAllBtn.onclick = () => this._waterAll();
     const remBtn = this._el("remove-plot-btn");
     if (remBtn) remBtn.onclick = () => this._removePlot(this._activePlot.id);
+    // Indoor/Outdoor environment toggle (v1.2.2).
+    this.shadowRoot.querySelectorAll(".env-toggle-btn[data-env]").forEach(btn => {
+      btn.onclick = () => this._setPlotEnvironment(btn.dataset.env === "indoor");
+    });
     this._bindPlantRows();
   }
 
@@ -1950,7 +1998,42 @@ class AgribuddyCard extends HTMLElement {
     }
   }
 
-  /* ── Plant table (used in plot view + active plants list) ──────────────── */
+  /**
+   * Toggle the active plot between Indoor and Outdoor (v1.2.2). Indoor plots
+   * are sheltered from local rain — the backend skips auto rain_detected
+   * events for their plants. Persists via PUT /plots/<id>, then re-renders.
+   */
+  async _setPlotEnvironment(indoor) {
+    const plot = this._activePlot;
+    if (!plot || plot.virtual) return;
+    if (!!plot.indoor === !!indoor) return;  // no change
+    // Optimistic UI: flip immediately, revert on failure.
+    const prev = plot.indoor;
+    plot.indoor = indoor;
+    this._renderCurrentView();
+    try {
+      const { status, data } = await this._apiFetch(`/plots/${encodeURIComponent(plot.id)}`, {
+        method: "PUT",
+        headers: { ...this._authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ indoor }),
+      });
+      if (data && data.ok) {
+        this._ok(indoor ? "Grow bed set to Indoor — rain won't auto-water it." : "Grow bed set to Outdoor.");
+        await this._fetchPlots();
+        const fresh = (this._plotsCache || []).find(p => p.id === plot.id);
+        if (fresh) this._activePlot = fresh;
+        this._renderCurrentView();
+      } else {
+        plot.indoor = prev;
+        this._renderCurrentView();
+        this._err("Update failed", (data && data.message) || `HTTP ${status}`);
+      }
+    } catch (e) {
+      plot.indoor = prev;
+      this._renderCurrentView();
+      this._err("Update failed", this._fmtErr(e, "agribuddy"));
+    }
+  }
 
   _tplPlantTable(plants) {
     if (!plants.length) {
@@ -3817,10 +3900,6 @@ class AgribuddyCard extends HTMLElement {
         <div class="form-row" style="align-items:flex-start"><span class="form-label" style="padding-top:6px">Layout</span>
           <div style="flex:1">
             <div class="layout-toggle" role="group" aria-label="Layout">
-              <button type="button" class="layout-toggle-btn" data-layout="auto"
-                      aria-pressed="false" title="Adapts to screen size">
-                <span aria-hidden="true">⤢</span> Auto
-              </button>
               <button type="button" class="layout-toggle-btn" data-layout="portrait"
                       aria-pressed="false" title="Optimized for phones &amp; portrait tablets">
                 <span aria-hidden="true">▯</span> Portrait
@@ -3831,9 +3910,9 @@ class AgribuddyCard extends HTMLElement {
               </button>
             </div>
             <div style="font-size:11px;color:var(--secondary-text-color);margin-top:6px;line-height:1.4">
-              Auto adapts to your screen width. Portrait stacks elements
-              vertically (best for phones). Landscape uses the wider layout.
-              Changes apply instantly; saved per browser.
+              Portrait stacks elements vertically (best for phones). Landscape
+              uses the wider layout. Saved to the integration, so it persists
+              across restarts and devices.
             </div>
           </div>
         </div>
@@ -3953,7 +4032,7 @@ class AgribuddyCard extends HTMLElement {
         <span style="color:var(--secondary-text-color)">API client:</span>
         <span style="color:${ok ? "#0F6E56" : "#993C1D"};font-weight:600">${ok ? "✓ Ready" : "✗ Not loaded"}</span>${usageRow}
         <span style="color:var(--secondary-text-color)">Backend http_api:</span>
-        <span style="font-family:monospace;font-size:11px">${data.http_api_version || "(missing — file is older than v1.2.4)"}</span>
+        <span style="font-family:monospace;font-size:11px">${data.http_api_version || "(missing — file is older than v1.2.5)"}</span>
       </div>`;
       // Pre-fill the form fields from backend values when card config doesn't override
       const wsel = this._el("cfg-weather");
@@ -5090,7 +5169,7 @@ if (!window.customCards.some(c => c.type === "agribuddy-card")) {
   });
 }
 console.info(
-  "%c Agribuddy CARD %c v1.2.4 ",
+  "%c Agribuddy CARD %c v1.2.5 ",
   "background:#1D9E75;color:#fff;font-weight:bold;padding:2px 4px;border-radius:4px 0 0 4px",
   "background:#0F6E56;color:#fff;padding:2px 4px;border-radius:0 4px 4px 0",
 );
