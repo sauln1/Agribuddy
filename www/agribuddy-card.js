@@ -1,6 +1,14 @@
 /**
- * Agribuddy Card  v1.2.5
+ * Agribuddy Card  v1.2.6
  * type: custom:agribuddy-card
+ *
+ * v1.2.6 — Week-view rain-dot fix
+ *  - The per-plant Week view no longer draws a duplicate rain dot: a rainy day
+ *    already carries the plant's own `rain_detected` event dot, so the extra
+ *    weather-log rain dot (which read as a second "watered" bubble) is
+ *    suppressed when that event is present.
+ *  - Indoor beds show no rain/weather dots in their plants' Week view.
+ *  - Rain dots are now blue (were a near-identical green to "watered").
  *
  * v1.2.5 — Layout persistence, Auto removed, Indoor/Outdoor beds
  *  - Layout preference now persists on the integration backend, so it survives
@@ -136,7 +144,9 @@ const evColors = type => {
 // Color mapping for planner cell dots — keeps sync with the legend
 const PLANNER_EVENT_COLORS = {
   watered: "#5DCAA5",
-  rain_detected: "#9FE1CB",
+  // Rain is blue (not a near-identical green to "watered") so a rain day
+  // reads clearly as rain, not a manual watering.
+  rain_detected: "#4FA3E3",
   fertilized: "#C0DD97",
   frost_alert: "#E24B4A",
   snow: "#A8C8DD",
@@ -1655,7 +1665,7 @@ class AgribuddyCard extends HTMLElement {
 
       <div id="view-container"></div>
 
-      <div style="margin-top:14px;font-size:10px;color:var(--secondary-text-color);opacity:.45;text-align:right;user-select:none">agribuddy-v1.2.5</div>
+      <div style="margin-top:14px;font-size:10px;color:var(--secondary-text-color);opacity:.45;text-align:right;user-select:none">agribuddy-v1.2.6</div>
 
       ${this._tplPlantOverlay()}
       ${this._tplSettingsOverlay()}
@@ -3072,6 +3082,12 @@ class AgribuddyCard extends HTMLElement {
     const dayLbls = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const evts = this._eventsWithProjections(plant);
     const wlog = this._weatherLog || {};
+    // Is this plant in an indoor bed? Indoor plants are sheltered from local
+    // rain — their calendar must not show rain/weather dots at all.
+    const plotForPlant = (this._plotsCache || []).find(
+      pl => pl.id === plant.plot_id
+    );
+    const isIndoor = !!(plotForPlant && plotForPlant.indoor);
     const hdrs = dayLbls.map((l, i) => {
       const isToday = localKey(days[i]) === todayKey;
       return `<div class="planner-hdr${isToday ? ' today' : ''}">${l} <span style="opacity:.5">${days[i].getDate()}</span></div>`;
@@ -3081,9 +3097,16 @@ class AgribuddyCard extends HTMLElement {
       const isToday = ds === todayKey;
       const isFuture = ds > todayKey;
       const dayEvts = evts.filter(e => e.date === ds);
-      const w = wlog[ds] || {};
+      // Weather dots come from the global weather_log, but they must not
+      // duplicate the plant's OWN events. On a rainy day an outdoor plant
+      // already carries a `rain_detected` event (drawn from dayEvts), so
+      // adding a second weather-log rain dot made it read as "watered + rain".
+      // So: skip the weather rain dot when the plant already has a rain event
+      // that day, and skip all weather dots entirely for indoor plants.
+      const w = isIndoor ? {} : (wlog[ds] || {});
+      const hasRainEvent = dayEvts.some(e => e.type === "rain_detected");
       const wdots = [];
-      if (w.rain) wdots.push(PLANNER_EVENT_COLORS.rain_detected);
+      if (w.rain && !hasRainEvent) wdots.push(PLANNER_EVENT_COLORS.rain_detected);
       if (w.snow) wdots.push(PLANNER_EVENT_COLORS.snow);
       if (w.frost) wdots.push(PLANNER_EVENT_COLORS.frost_alert);
       const dots = dayEvts.map(e => `<span class="evt-dot" style="background:${PLANNER_EVENT_COLORS[e.type] || PLANNER_EVENT_COLORS.other}" title="${this._esc(EVENT_LABELS[e.type] || e.type)}"></span>`).join("")
@@ -4032,7 +4055,7 @@ class AgribuddyCard extends HTMLElement {
         <span style="color:var(--secondary-text-color)">API client:</span>
         <span style="color:${ok ? "#0F6E56" : "#993C1D"};font-weight:600">${ok ? "✓ Ready" : "✗ Not loaded"}</span>${usageRow}
         <span style="color:var(--secondary-text-color)">Backend http_api:</span>
-        <span style="font-family:monospace;font-size:11px">${data.http_api_version || "(missing — file is older than v1.2.5)"}</span>
+        <span style="font-family:monospace;font-size:11px">${data.http_api_version || "(missing — file is older than v1.2.6)"}</span>
       </div>`;
       // Pre-fill the form fields from backend values when card config doesn't override
       const wsel = this._el("cfg-weather");
@@ -5169,7 +5192,7 @@ if (!window.customCards.some(c => c.type === "agribuddy-card")) {
   });
 }
 console.info(
-  "%c Agribuddy CARD %c v1.2.5 ",
+  "%c Agribuddy CARD %c v1.2.6 ",
   "background:#1D9E75;color:#fff;font-weight:bold;padding:2px 4px;border-radius:4px 0 0 4px",
   "background:#0F6E56;color:#fff;padding:2px 4px;border-radius:0 4px 4px 0",
 );
