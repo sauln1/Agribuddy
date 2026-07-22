@@ -4,15 +4,15 @@ A Home Assistant integration + Lovelace card for tracking your garden. Plan grow
 
 <sup>* Integration developed with assistance from AI.</sup>
 
-![Version](https://img.shields.io/badge/version-1.2.2-1D9E75)
+![Version](https://img.shields.io/badge/version-1.2.3-1D9E75)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.1%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 [![HACS](https://img.shields.io/badge/HACS-default-orange.svg?style=flat-square)](https://hacs.xyz)
 
 ---
-# v1.2.2 UPDATE NOTES
+# v1.2.3 UPDATE NOTES
 
-### In v1.2.2 we're fixing some bugs related to the orientation of the card and adding a feature for indoor plants, enabling users to assign grow beds as either "Indoor" or "Outdoor" where indoor plants will not be impacted by rainfall.
+### In v1.2.3 we're fixing a remaining issue with indoor plants being marked as 'watered' when it rains. We're also fixing an issue where sometimes outdoor plants would be marked with both 'watered' and 'rain' clanedar events when it just rained.
 ---
 ## Features
 
