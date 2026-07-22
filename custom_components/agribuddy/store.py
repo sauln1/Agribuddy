@@ -823,10 +823,23 @@ class PlantStore:
         #      manually watered.
         weather_log = self._data.get("weather_log") or {}
         start_date_str = p.get("start_date") or ""
-        # Step 1: scan plant events
+        # v1.2.2: is this plant in an INDOOR grow bed? Indoor plants are
+        # sheltered from local rain — they're only "watered" by manual events,
+        # never by rain (neither auto rain_detected events nor the weather_log
+        # fallback below). Computed here so both scans can honor it.
+        plots = self._data.get("plots") or {}
+        plant_plot = plots.get(p.get("plot_id")) if p.get("plot_id") else None
+        is_indoor = bool(plant_plot and plant_plot.get("indoor"))
+        # Step 1: scan plant events. For indoor plants, rain_detected events are
+        # ignored (only manual EVENT_WATERED counts) — this also neutralizes any
+        # stale rain events logged before the plant was moved indoors or under
+        # an older version.
         last_w_evt = last_f = None
         for e in reversed(evts):
-            if not last_w_evt and e["type"] in (EVENT_WATERED, EVENT_RAIN_DETECTED):
+            if not last_w_evt and (
+                e["type"] == EVENT_WATERED
+                or (e["type"] == EVENT_RAIN_DETECTED and not is_indoor)
+            ):
                 last_w_evt = e["date"]
             if not last_f and e["type"] == EVENT_FERTILIZED:
                 last_f = e["date"]
@@ -834,10 +847,11 @@ class PlantStore:
                 break
         # Step 2: scan weather_log for rain on days within the plant's lifetime.
         # Only consider days >= start_date (rain BEFORE the plant existed
-        # doesn't water it) and <= today (no future rain).
+        # doesn't water it) and <= today (no future rain). Skipped entirely for
+        # indoor plants (see above).
         today_iso = date.today().isoformat()
         last_w_rain = None
-        if weather_log and start_date_str:
+        if not is_indoor and weather_log and start_date_str:
             # Only look at days that could have watered this plant
             rain_days = [
                 ds
@@ -873,13 +887,15 @@ class PlantStore:
         if last_w_rain and last_w_rain == last_w:
             p["last_water_source"] = "rain"
         elif last_w_evt and last_w_evt == last_w:
-            # Check whether that event was specifically a rain_detected
-            for e in evts:
-                if e.get("date") == last_w_evt and e.get("type") == EVENT_RAIN_DETECTED:
-                    p["last_water_source"] = "rain"
-                    break
-            else:
-                p["last_water_source"] = "manual"
+            # Check whether that event was specifically a rain_detected. For
+            # indoor plants rain never counts, so the source is always manual.
+            source = "manual"
+            if not is_indoor:
+                for e in evts:
+                    if e.get("date") == last_w_evt and e.get("type") == EVENT_RAIN_DETECTED:
+                        source = "rain"
+                        break
+            p["last_water_source"] = source
         else:
             p["last_water_source"] = None
 
