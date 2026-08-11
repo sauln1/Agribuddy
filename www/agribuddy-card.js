@@ -1,8 +1,8 @@
 /**
- * Agribuddy Card  v1.2.8
+ * Agribuddy Card  v1.2.7
  * type: custom:agribuddy-card
  *
- * v1.2.8 — Fertilizing & pruning schedules
+ * v1.2.7 — Fertilizing & pruning schedules
  *  - Drill-down: Fertilizing and Pruning rows show the schedule interval and a
  *    Due/OK status (mirrors the watering model). Fertilizing and Pruning notes
  *    appear as collapsible care sections.
@@ -12,8 +12,6 @@
  *  - New "Pruned" log-event type (with icon/color/label).
  *  - Pairs with backend v1.2.4, which exposes sensor.<plant>_fertilizing and
  *    sensor.<plant>_pruning (ok/due/scheduled) for automations.
- *
- * v1.2.7 — Auth fix, custom-plant duplicate, weather picker
  *  - Fixed "invalid authentication" errors (and vanishing grow plots): API
  *    calls now go through HA's own authenticated client (hass.callApi), which
  *    refreshes expired tokens, instead of a hand-attached access token that
@@ -1710,7 +1708,7 @@ class AgribuddyCard extends HTMLElement {
 
       <div id="view-container"></div>
 
-      <div style="margin-top:14px;font-size:10px;color:var(--secondary-text-color);opacity:.45;text-align:right;user-select:none">agribuddy-v1.2.8</div>
+      <div style="margin-top:14px;font-size:10px;color:var(--secondary-text-color);opacity:.45;text-align:right;user-select:none">agribuddy-v1.2.7</div>
 
       ${this._tplPlantOverlay()}
       ${this._tplSettingsOverlay()}
@@ -4248,7 +4246,7 @@ class AgribuddyCard extends HTMLElement {
         <span style="color:var(--secondary-text-color)">API client:</span>
         <span style="color:${ok ? "#0F6E56" : "#993C1D"};font-weight:600">${ok ? "✓ Ready" : "✗ Not loaded"}</span>${usageRow}
         <span style="color:var(--secondary-text-color)">Backend http_api:</span>
-        <span style="font-family:monospace;font-size:11px">${data.http_api_version || "(missing — file is older than v1.2.8)"}</span>
+        <span style="font-family:monospace;font-size:11px">${data.http_api_version || "(missing — file is older than v1.2.7)"}</span>
       </div>`;
       // Pre-fill the form fields from backend values when card config doesn't override
       const wsel = this._el("cfg-weather");
@@ -5385,7 +5383,7 @@ if (!window.customCards.some(c => c.type === "agribuddy-card")) {
   });
 }
 console.info(
-  "%c Agribuddy CARD %c v1.2.8 ",
+  "%c Agribuddy CARD %c v1.2.7 ",
   "background:#1D9E75;color:#fff;font-weight:bold;padding:2px 4px;border-radius:4px 0 0 4px",
   "background:#0F6E56;color:#fff;padding:2px 4px;border-radius:0 4px 4px 0",
 );
