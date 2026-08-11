@@ -35,6 +35,7 @@ from .const import (
     EVENT_FERTILIZED,
     EVENT_HARVESTED,
     EVENT_PLANTED,
+    EVENT_PRUNED,
     EVENT_RAIN_DETECTED,
     EVENT_WATERED,
     STORAGE_KEY,
@@ -592,6 +593,14 @@ class PlantStore:
             "water_use",  # categorical (Low/Moderate/High)
             "watering_min_days",  # numeric override for needs_water threshold
             "watering_max_days",  # numeric override (display only)
+            # Fertilizing + pruning schedules (v1.2.4) — numeric day intervals
+            # driving the fertilizing/pruning sensors, plus free-text guidance.
+            "fertilize_min_days",
+            "fertilize_max_days",
+            "fertilizing_instructions",
+            "prune_min_days",
+            "prune_max_days",
+            "pruning_instructions",
             # Soil + spacing + growth
             "soil_preference",
             "spacing_requirement",
@@ -834,7 +843,7 @@ class PlantStore:
         # ignored (only manual EVENT_WATERED counts) — this also neutralizes any
         # stale rain events logged before the plant was moved indoors or under
         # an older version.
-        last_w_evt = last_f = None
+        last_w_evt = last_f = last_pr = None
         for e in reversed(evts):
             if not last_w_evt and (
                 e["type"] == EVENT_WATERED
@@ -843,7 +852,9 @@ class PlantStore:
                 last_w_evt = e["date"]
             if not last_f and e["type"] == EVENT_FERTILIZED:
                 last_f = e["date"]
-            if last_w_evt and last_f:
+            if not last_pr and e["type"] == EVENT_PRUNED:
+                last_pr = e["date"]
+            if last_w_evt and last_f and last_pr:
                 break
         # Step 2: scan weather_log for rain on days within the plant's lifetime.
         # Only consider days >= start_date (rain BEFORE the plant existed
@@ -881,7 +892,10 @@ class PlantStore:
         # against watering_min_days.
         p["days_since_watered"] = _days_since(baseline) if baseline else None
         p["days_since_fertilized"] = _days_since(last_f)
+        p["last_pruned"] = last_pr
+        p["days_since_pruned"] = _days_since(last_pr)
         p["never_watered"] = bool(never_watered and start_date_str)
+
         # Surface whether the most recent watering came from rain (so the UI
         # can show a 🌧 indicator instead of just "needs water")
         if last_w_rain and last_w_rain == last_w:
@@ -1100,6 +1114,56 @@ class PlantStore:
             p["invasive_alert"] = bool(ov["invasive_alert"])
         else:
             p["invasive_alert"] = bool(eco.get("isInvasive"))
+
+        # ── Fertilizing + pruning schedules (v1.2.4) ──────────────────────
+        # Both mirror the watering model: a user-set min/max day interval
+        # drives a "due" status the same way watering_min_days drives
+        # "thirsty". Verdantly provides no numeric interval, so the threshold
+        # is entirely user-supplied via overrides; the free-text instructions
+        # can come from the API care text or an override. When no min
+        # threshold is set, status is "ok" (never fires an automation). Uses
+        # the same baseline-fallback-to-start_date logic as watering, so a
+        # plant never fertilized/pruned still becomes "due" once the interval
+        # elapses from its start date.
+        care_obj = sd.get("careInstructions") if isinstance(sd, dict) else None
+        care_obj = care_obj if isinstance(care_obj, dict) else {}
+
+        def _schedule_status(min_days, last_date):
+            if p.get("is_scheduled"):
+                return "scheduled"
+            if min_days is None:
+                return "ok"  # no schedule configured → nothing to be due for
+            base = last_date or start_date_str or None
+            if not base:
+                return "ok"
+            elapsed = _days_since(base)
+            if elapsed is None:
+                return "ok"
+            return "due" if elapsed >= min_days else "ok"
+
+        fert_min = _coerce_int(ov.get("fertilize_min_days"))
+        fert_max = _coerce_int(ov.get("fertilize_max_days"))
+        p["fertilize_min_days"] = fert_min
+        p["fertilize_max_days"] = fert_max
+        p["fertilizing_status"] = _schedule_status(fert_min, last_f)
+        p["needs_fertilizing"] = p["fertilizing_status"] == "due"
+        p["fertilizing_instructions"] = (
+            ov.get("fertilizing_instructions")
+            or care_obj.get("fertilizingInstructions")
+            or ""
+        )
+
+        prune_min = _coerce_int(ov.get("prune_min_days"))
+        prune_max = _coerce_int(ov.get("prune_max_days"))
+        p["prune_min_days"] = prune_min
+        p["prune_max_days"] = prune_max
+        p["pruning_status"] = _schedule_status(prune_min, last_pr)
+        p["needs_pruning"] = p["pruning_status"] == "due"
+        p["pruning_instructions"] = (
+            ov.get("pruning_instructions")
+            or care_obj.get("pruningInstructions")
+            or ""
+        )
 
         # ── Taxonomy footer (family | genus | species) ────────────────────
         p["taxonomy_family"] = tx.get("family") or ""

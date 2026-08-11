@@ -42,7 +42,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-_HTTP_API_VERSION = "1.2.3"
+_HTTP_API_VERSION = "1.2.4"
 
 
 def async_register_views(hass: HomeAssistant) -> None:

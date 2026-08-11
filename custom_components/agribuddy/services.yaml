@@ -76,12 +76,15 @@ log_event:
           options:
             - watered
             - fertilized
+            - pruned
             - pest_spotted
             - blight
             - snow
+            - indoor_start
             - sprouted
             - harvested
             - transplanted
+            - removed
             - other
     note:
       name: Note

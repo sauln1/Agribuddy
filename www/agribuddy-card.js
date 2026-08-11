@@ -1,6 +1,25 @@
 /**
- * Agribuddy Card  v1.2.6
+ * Agribuddy Card  v1.2.7
  * type: custom:agribuddy-card
+ *
+ * v1.2.7 — Fertilizing & pruning schedules
+ *  - Drill-down: Fertilizing and Pruning rows show the schedule interval and a
+ *    Due/OK status (mirrors the watering model). Fertilizing and Pruning notes
+ *    appear as collapsible care sections.
+ *  - Edit plant details: editable min/max day intervals and notes for both
+ *    fertilizing and pruning (saved as per-plant overrides). The min interval
+ *    drives the new sensors.
+ *  - New "Pruned" log-event type (with icon/color/label).
+ *  - Pairs with backend v1.2.4, which exposes sensor.<plant>_fertilizing and
+ *    sensor.<plant>_pruning (ok/due/scheduled) for automations.
+ *  - Fixed "invalid authentication" errors (and vanishing grow plots): API
+ *    calls now go through HA's own authenticated client (hass.callApi), which
+ *    refreshes expired tokens, instead of a hand-attached access token that
+ *    expired after a dashboard had been open a while.
+ *  - Duplicating a custom (user-created) plant now works — it no longer tries
+ *    to route through the API add-plant form (which needs a Verdantly id).
+ *  - Settings weather-entity field suggests your weather.* entities and
+ *    weather-related sensors as you type (scoped, not every entity).
  *
  * v1.2.6 — Week-view rain-dot fix
  *  - The per-plant Week view no longer draws a duplicate rain dot: a rainy day
@@ -118,7 +137,7 @@ const localKey = d => {
 };
 
 const eventIcon = type => ({
-  watered: "💧", fertilized: "🌿", pest_spotted: "🐛", pest: "🐛",
+  watered: "💧", fertilized: "🌿", pruned: "✂️", pest_spotted: "🐛", pest: "🐛",
   harvested: "🌾", sprouted: "🌱", transplanted: "🪴", planted: "🌰",
   dead: "💀",
   rain_detected: "🌧️", frost_alert: "❄️", snow: "🌨️",
@@ -148,6 +167,7 @@ const PLANNER_EVENT_COLORS = {
   // reads clearly as rain, not a manual watering.
   rain_detected: "#4FA3E3",
   fertilized: "#C0DD97",
+  pruned: "#6FBF9C",
   frost_alert: "#E24B4A",
   snow: "#A8C8DD",
   pest_spotted: "#D4A04A",
@@ -180,6 +200,7 @@ const SEASON_BUBBLE_COLORS = {
 const EVENT_LABELS = {
   watered: "Watered",
   fertilized: "Fertilized",
+  pruned: "Pruned",
   pest_spotted: "Pest spotted",
   pest: "Pest spotted",
   harvested: "Harvested",
@@ -1508,6 +1529,11 @@ class AgribuddyCard extends HTMLElement {
   _el(id) { return this.shadowRoot.getElementById(id); }
 
   _authHeaders() {
+    // Retained for callers that still build their own fetch (none in the
+    // hot path now). Prefer _apiFetch, which uses hass.callApi and its
+    // auto-refreshing auth. The raw access_token here can EXPIRE, which is
+    // what caused "invalid authentication" 401 spam once a dashboard had
+    // been open past the token lifetime.
     const token = this._hass?.auth?.data?.access_token;
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
@@ -1520,28 +1546,45 @@ class AgribuddyCard extends HTMLElement {
     return short + (ctx ? ` — Check HA logs (search "${ctx}").` : "");
   }
 
+  /**
+   * Call the Agribuddy HTTP API through HA's own authenticated client
+   * (hass.callApi), which uses the long-lived WebSocket connection auth and
+   * transparently refreshes expired tokens. This replaces a hand-rolled
+   * fetch that attached hass.auth.data.access_token directly — that token
+   * expires (~30 min), after which every request 401'd ("invalid
+   * authentication"), the /plots fetch failed, and the grow plots vanished.
+   *
+   * Preserves the existing { status, data } return contract so callers are
+   * unchanged. callApi prepends "/api/", so we pass the path minus that
+   * prefix. It throws on non-2xx; we map that back into { status, data }.
+   *
+   * `opts` supports { method, headers, body }. For JSON bodies we parse the
+   * string body back into an object (callApi serializes the parameters).
+   */
   async _apiFetch(path, opts = {}) {
-    const r = await fetch(API_BASE + path, { headers: this._authHeaders(), ...opts });
-    const txt = await r.text();
-    let data;
-    try {
-      data = JSON.parse(txt);
-    } catch {
-      // Surface the actual response so we can diagnose. HA returns plain-text
-      // errors for 401/403/404/405 — the body tells us exactly what went wrong.
-      const preview = (txt || "").trim().slice(0, 200) || "(empty body)";
-      console.warn(
-        "[Agribuddy] Non-JSON response from", path,
-        "status:", r.status,
-        "content-type:", r.headers.get("content-type"),
-        "body:", preview,
-      );
-      data = {
-        error: "invalid_response",
-        message: `HTTP ${r.status}: ${preview}`,
-      };
+    const method = (opts.method || "GET").toUpperCase();
+    // path comes in as "/plots"; callApi wants "agribuddy/plots" (it adds /api/).
+    const apiPath = ("agribuddy" + path).replace(/^\/+/, "");
+    let params;
+    if (opts.body != null) {
+      params = typeof opts.body === "string" ? JSON.parse(opts.body) : opts.body;
     }
-    return { status: r.status, data };
+    try {
+      const data = await this._hass.callApi(method, apiPath, params);
+      return { status: 200, data };
+    } catch (err) {
+      // hass.callApi rejects with { status_code, body } on HTTP errors, or a
+      // generic Error otherwise. Normalize into our { status, data } shape.
+      const status = (err && (err.status_code || err.status)) || 0;
+      let data = err && err.body;
+      if (data == null) {
+        data = { error: "request_failed", message: (err && err.message) || String(err) };
+      } else if (typeof data === "string") {
+        try { data = JSON.parse(data); }
+        catch { data = { error: "http_error", message: `HTTP ${status}: ${data.slice(0, 200)}` }; }
+      }
+      return { status: status || 0, data };
+    }
   }
 
   /* ── Bus events: auto-refresh on data changes ──────────────────────────── */
@@ -1665,7 +1708,7 @@ class AgribuddyCard extends HTMLElement {
 
       <div id="view-container"></div>
 
-      <div style="margin-top:14px;font-size:10px;color:var(--secondary-text-color);opacity:.45;text-align:right;user-select:none">agribuddy-v1.2.6</div>
+      <div style="margin-top:14px;font-size:10px;color:var(--secondary-text-color);opacity:.45;text-align:right;user-select:none">agribuddy-v1.2.7</div>
 
       ${this._tplPlantOverlay()}
       ${this._tplSettingsOverlay()}
@@ -2573,6 +2616,10 @@ class AgribuddyCard extends HTMLElement {
               <span class="tcm-kv-value" id="tc-water-range">—</span>
               <span class="tcm-kv-label">Days since water</span>
               <span class="tcm-kv-value" id="tc-days-since-water">—</span>
+              <span class="tcm-kv-label">Fertilizing</span>
+              <span class="tcm-kv-value" id="tc-fertilizing">—</span>
+              <span class="tcm-kv-label">Pruning</span>
+              <span class="tcm-kv-value" id="tc-pruning">—</span>
               <span class="tcm-kv-label">Toxicity</span>
               <span class="tcm-kv-value tcm-kv-value-warn" id="tc-toxicity">—</span>
             </div>
@@ -2601,6 +2648,7 @@ class AgribuddyCard extends HTMLElement {
                 <select class="form-select" id="evt-type">
                   <option value="watered">Watered</option>
                   <option value="fertilized">Fertilized</option>
+                  <option value="pruned">Pruned</option>
                   <option value="pest_spotted">Pest spotted</option>
                   <option value="snow">Snow</option>
                   <option value="indoor_start">Indoor start</option>
@@ -2654,6 +2702,40 @@ class AgribuddyCard extends HTMLElement {
                   <option value="Moderate">Moderate (default 3–7 days)</option>
                   <option value="High">High (default 1–3 days)</option>
                 </select>
+              </div>
+              <!-- v1.2.4 — Fertilizing schedule + guidance. The min value
+                   drives the fertilizing sensor's "due" state. Leave blank to
+                   keep the sensor at "ok" (no schedule). -->
+              <div class="form-row">
+                <span class="form-label">🧪 Fertilizing (days between)</span>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input class="form-input ov-water-num" type="number" min="1" max="365"
+                         id="ov-fert-min" placeholder="min days"
+                         title="Minimum days between fertilizing — drives the fertilizing sensor's 'due' state">
+                  <span style="color:var(--secondary-text-color);font-size:14px">to</span>
+                  <input class="form-input ov-water-num" type="number" min="1" max="365"
+                         id="ov-fert-max" placeholder="max days"
+                         title="Maximum days between fertilizing (display only)">
+                </div>
+              </div>
+              <div class="form-row"><span class="form-label">Fertilizing notes</span>
+                <textarea class="form-textarea" id="ov-fert-instr" placeholder="e.g. Feed every 2 weeks with balanced liquid fertilizer…"></textarea>
+              </div>
+              <!-- v1.2.4 — Pruning schedule + guidance (same model). -->
+              <div class="form-row">
+                <span class="form-label">✂️ Pruning (days between)</span>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input class="form-input ov-water-num" type="number" min="1" max="365"
+                         id="ov-prune-min" placeholder="min days"
+                         title="Minimum days between pruning — drives the pruning sensor's 'due' state">
+                  <span style="color:var(--secondary-text-color);font-size:14px">to</span>
+                  <input class="form-input ov-water-num" type="number" min="1" max="365"
+                         id="ov-prune-max" placeholder="max days"
+                         title="Maximum days between pruning (display only)">
+                </div>
+              </div>
+              <div class="form-row"><span class="form-label">Pruning notes</span>
+                <textarea class="form-textarea" id="ov-prune-instr" placeholder="e.g. Pinch suckers weekly; prune lower leaves…"></textarea>
               </div>
               <div class="form-row"><span class="form-label">Soil preference</span>
                 <input class="form-input" type="text" id="ov-soil-pref" placeholder="e.g. Well-drained loam">
@@ -2963,6 +3045,10 @@ class AgribuddyCard extends HTMLElement {
       { icon: "🌱", title: "Transplant Outdoors", text: planting.transplantOutdoors },
       { icon: "🌾", title: "Direct Sow", text: planting.directSow },
       { icon: "🧺", title: "Harvesting", text: ci.harvestingInstructions },
+      // v1.2.4 — prefer the enriched (override-aware) instructions, falling
+      // back to the raw careInstructions object.
+      { icon: "🧪", title: "Fertilizing", text: plant.fertilizing_instructions || ci.fertilizingInstructions },
+      { icon: "✂️", title: "Pruning", text: plant.pruning_instructions || ci.pruningInstructions },
     ].filter(s => s.text && String(s.text).trim());
 
     if (!sections.length) {
@@ -3350,6 +3436,29 @@ class AgribuddyCard extends HTMLElement {
       }
     }
 
+    // Fertilizing + pruning (v1.2.4). Show the schedule interval and a
+    // status chip mirroring the watering "days since" treatment: when a
+    // min-day interval is set we show "every N–M days" plus a "Due"/"OK"
+    // marker (red when due). With no interval configured we show a dash.
+    const fmtSchedule = (min, max, status, sinceDays) => {
+      if (min == null && max == null) return { text: dash, due: false };
+      let range;
+      if (min != null && max != null) range = min === max ? `every ${min} days` : `every ${min}–${max} days`;
+      else if (min != null) range = `every ${min} days`;
+      else range = `up to ${max} days`;
+      const due = status === "due";
+      const sinceTxt = sinceDays == null ? "never done" : sinceDays === 0 ? "done today" : `${sinceDays}d ago`;
+      return { text: `${range} · ${due ? "Due now" : sinceTxt}`, due };
+    };
+    const fEl = this._el("tc-fertilizing");
+    const fInfo = fmtSchedule(plant.fertilize_min_days, plant.fertilize_max_days, plant.fertilizing_status, plant.days_since_fertilized);
+    fEl.textContent = fInfo.text;
+    fEl.classList.toggle("tcm-kv-value-warn", fInfo.due);
+    const prEl = this._el("tc-pruning");
+    const prInfo = fmtSchedule(plant.prune_min_days, plant.prune_max_days, plant.pruning_status, plant.days_since_pruned);
+    prEl.textContent = prInfo.text;
+    prEl.classList.toggle("tcm-kv-value-warn", prInfo.due);
+
     // Care Instructions — v1.2.0: collapsible per-section dropdowns,
     // sourced from the /name endpoint's careInstructions object. Empty
     // sections are omitted.
@@ -3474,6 +3583,12 @@ class AgribuddyCard extends HTMLElement {
     set("ov-water-use", ov.water_use);
     set("ov-water-min", ov.watering_min_days);
     set("ov-water-max", ov.watering_max_days);
+    set("ov-fert-min", ov.fertilize_min_days);
+    set("ov-fert-max", ov.fertilize_max_days);
+    set("ov-fert-instr", ov.fertilizing_instructions);
+    set("ov-prune-min", ov.prune_min_days);
+    set("ov-prune-max", ov.prune_max_days);
+    set("ov-prune-instr", ov.pruning_instructions);
     set("ov-soil-pref", ov.soil_preference);
     set("ov-spacing", ov.spacing_requirement);
     set("ov-growth-period", ov.growth_period);
@@ -3645,6 +3760,12 @@ class AgribuddyCard extends HTMLElement {
       water_use: v("ov-water-use"),
       watering_min_days: intnum("ov-water-min"),
       watering_max_days: intnum("ov-water-max"),
+      fertilize_min_days: intnum("ov-fert-min"),
+      fertilize_max_days: intnum("ov-fert-max"),
+      fertilizing_instructions: v("ov-fert-instr"),
+      prune_min_days: intnum("ov-prune-min"),
+      prune_max_days: intnum("ov-prune-max"),
+      pruning_instructions: v("ov-prune-instr"),
       soil_preference: v("ov-soil-pref"),
       spacing_requirement: v("ov-spacing"),
       growth_period: v("ov-growth-period"),
@@ -3682,6 +3803,18 @@ class AgribuddyCard extends HTMLElement {
       && overrides.days_to_harvest_min > overrides.days_to_harvest_max) {
       this._err("Invalid harvest range",
         "Days-to-harvest min must be less than or equal to max.");
+      return;
+    }
+    if (overrides.fertilize_min_days !== "" && overrides.fertilize_max_days !== ""
+      && overrides.fertilize_min_days > overrides.fertilize_max_days) {
+      this._err("Invalid fertilizing range",
+        "Fertilizing min days must be less than or equal to max days.");
+      return;
+    }
+    if (overrides.prune_min_days !== "" && overrides.prune_max_days !== ""
+      && overrides.prune_min_days > overrides.prune_max_days) {
+      this._err("Invalid pruning range",
+        "Pruning min days must be less than or equal to max days.");
       return;
     }
 
@@ -3822,6 +3955,16 @@ class AgribuddyCard extends HTMLElement {
     const plotId = this._activePlot ? this._activePlot.id : (plant.plot_id || null);
     const plotName = this._activePlot ? this._activePlot.name : (plant.plot_name || "");
 
+    // Custom (user-created) plants don't have a Verdantly scientific_name /
+    // id in their species_data, so they can't go through the API add-plant
+    // form path (which derives species_id from those). Duplicate them
+    // directly: reuse the stored species_data, mint a NEW custom:<uuid> id,
+    // and call add_plant. Copies the per-plant water-schedule override too.
+    if (plant.is_custom || sd.is_custom) {
+      this._duplicateCustomPlant(plant, plotId, plotName);
+      return;
+    }
+
     // Close the plant detail overlay, open a fresh add-plant overlay, then
     // jump directly to the prefilled form step using the existing
     // species_data (which the backend normalizer already shaped).
@@ -3846,23 +3989,71 @@ class AgribuddyCard extends HTMLElement {
     if (hdr) hdr.textContent = `Duplicate plant${plotName ? ` in ${plotName}` : ""}`;
   }
 
+  /**
+   * Duplicate a custom (user-created) plant. Deep-copies its species_data,
+   * assigns a fresh custom:<uuid> species_id, and adds it via add_plant.
+   * Also re-applies the original's watering-schedule override (min/max days)
+   * since that lives in user_overrides, not species_data.
+   */
+  async _duplicateCustomPlant(plant, plotId, plotName) {
+    const sd = JSON.parse(JSON.stringify(plant.species_data || {}));
+    sd.is_custom = true;
+    const uuid = (window.crypto && window.crypto.randomUUID)
+      ? window.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const speciesId = `custom:${uuid}`;
+    const name = `${plant.plant_name || plant.name || "Custom plant"} (copy)`;
+    try {
+      await this._hass.callService(DOMAIN, "add_plant", {
+        plant_name: name,
+        species_id: speciesId,
+        start_type: plant.start_type || "seed",
+        start_date: localKey(new Date()),
+        plot_id: plotId,
+        species_data: sd,
+      });
+      // Re-apply the watering-schedule override if the source had one.
+      const wMin = plant.watering_min_days;
+      const wMax = plant.watering_max_days;
+      if (wMin != null || wMax != null) {
+        try {
+          await this._fetchPlots();
+          const created = this._allPlants().find(p => p.species_id === speciesId);
+          const cpid = created && (created.plant_id || created.id);
+          if (cpid) {
+            const overrides = {};
+            if (wMin != null) overrides.watering_min_days = wMin;
+            if (wMax != null) overrides.watering_max_days = wMax;
+            await this._hass.callService(DOMAIN, "update_plant_overrides", {
+              plant_id: cpid, overrides,
+            });
+          }
+        } catch (e) { console.warn("Agribuddy: dup water override failed:", e); }
+      }
+      this._close("plant-overlay");
+      this._ok(`${name} created!`);
+    } catch (e) {
+      this._err("Failed to duplicate plant", this._fmtErr(e, "agribuddy"));
+    }
+  }
+
   _tplSettingsOverlay() {
     const title = this._config.title || "My Garden";
-    // Allow ANY entity, not just the weather.* domain. We render a datalist
-    // for autocomplete with weather/sensor entities listed first (most likely
-    // candidates) and fall back to text entry so users can type any entity id.
+    // Weather-entity autocomplete. Offer weather.* entities first, then
+    // weather-ish sensors (temperature/precipitation/etc.), as a native
+    // <datalist> that filters as the user types. We deliberately DON'T dump
+    // every entity in the system — on a large install that's thousands of
+    // options and makes the picker useless. Any entity id can still be typed
+    // by hand (the field is free text), it just won't be suggested.
     const allEntities = Object.keys(this._hass?.states || {});
     const weatherFirst = allEntities
       .filter(id => id.startsWith("weather."))
       .sort();
     const sensorEntities = allEntities
-      .filter(id => id.startsWith("sensor.") && /weather|condition|forecast|rain|precip/i.test(id))
+      .filter(id => id.startsWith("sensor.") && /weather|temperature|condition|forecast|rain|precip|humid/i.test(id))
       .sort();
-    const otherEntities = allEntities
-      .filter(id => !id.startsWith("weather.") && !sensorEntities.includes(id))
-      .sort();
-    // Datalist: weather first, then weather-ish sensors, then everything else.
-    const entityList = [...weatherFirst, ...sensorEntities, ...otherEntities];
+    // Suggestions = weather entities + weather-ish sensors only.
+    const entityList = [...weatherFirst, ...sensorEntities];
     const currentWeather = this._config.weather_entity || weatherFirst[0] || "";
     const datalistOpts = entityList
       .map(id => `<option value="${id}"></option>`)
@@ -3900,9 +4091,9 @@ class AgribuddyCard extends HTMLElement {
         <div class="set-section">Weather entity</div>
         <div class="form-row">
           <span class="form-label">Entity representing current weather</span>
-          <input class="form-input" type="text" id="cfg-weather" list="agribuddy-entity-list" value="${this._esc(currentWeather)}" placeholder="weather.home or any entity id">
+          <input class="form-input" type="text" id="cfg-weather" list="agribuddy-entity-list" value="${this._esc(currentWeather)}" placeholder="Start typing… e.g. weather.home" autocomplete="off">
           <datalist id="agribuddy-entity-list">${datalistOpts}</datalist>
-          <span class="form-hint">Any entity is allowed. Rain/snow/frost are detected from the entity's state and attributes. Saved both in the card and on the integration backend.</span>
+          <span class="form-hint">Start typing to pick from your weather entities (weather.* and weather-related sensors). Any entity id can also be entered manually. Rain/snow/frost are read from the entity's state and attributes.</span>
         </div>
 
         <div class="set-section">Hardiness Zone Range</div>
@@ -4055,7 +4246,7 @@ class AgribuddyCard extends HTMLElement {
         <span style="color:var(--secondary-text-color)">API client:</span>
         <span style="color:${ok ? "#0F6E56" : "#993C1D"};font-weight:600">${ok ? "✓ Ready" : "✗ Not loaded"}</span>${usageRow}
         <span style="color:var(--secondary-text-color)">Backend http_api:</span>
-        <span style="font-family:monospace;font-size:11px">${data.http_api_version || "(missing — file is older than v1.2.6)"}</span>
+        <span style="font-family:monospace;font-size:11px">${data.http_api_version || "(missing — file is older than v1.2.7)"}</span>
       </div>`;
       // Pre-fill the form fields from backend values when card config doesn't override
       const wsel = this._el("cfg-weather");
@@ -5192,7 +5383,7 @@ if (!window.customCards.some(c => c.type === "agribuddy-card")) {
   });
 }
 console.info(
-  "%c Agribuddy CARD %c v1.2.6 ",
+  "%c Agribuddy CARD %c v1.2.7 ",
   "background:#1D9E75;color:#fff;font-weight:bold;padding:2px 4px;border-radius:4px 0 0 4px",
   "background:#0F6E56;color:#fff;padding:2px 4px;border-radius:0 4px 4px 0",
 );
