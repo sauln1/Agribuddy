@@ -1,6 +1,16 @@
 /**
- * Agribuddy Card  v1.2.6
+ * Agribuddy Card  v1.2.7
  * type: custom:agribuddy-card
+ *
+ * v1.2.7 — Auth fix, custom-plant duplicate, weather picker
+ *  - Fixed "invalid authentication" errors (and vanishing grow plots): API
+ *    calls now go through HA's own authenticated client (hass.callApi), which
+ *    refreshes expired tokens, instead of a hand-attached access token that
+ *    expired after a dashboard had been open a while.
+ *  - Duplicating a custom (user-created) plant now works — it no longer tries
+ *    to route through the API add-plant form (which needs a Verdantly id).
+ *  - Settings weather-entity field suggests your weather.* entities and
+ *    weather-related sensors as you type (scoped, not every entity).
  *
  * v1.2.6 — Week-view rain-dot fix
  *  - The per-plant Week view no longer draws a duplicate rain dot: a rainy day
@@ -1508,6 +1518,11 @@ class AgribuddyCard extends HTMLElement {
   _el(id) { return this.shadowRoot.getElementById(id); }
 
   _authHeaders() {
+    // Retained for callers that still build their own fetch (none in the
+    // hot path now). Prefer _apiFetch, which uses hass.callApi and its
+    // auto-refreshing auth. The raw access_token here can EXPIRE, which is
+    // what caused "invalid authentication" 401 spam once a dashboard had
+    // been open past the token lifetime.
     const token = this._hass?.auth?.data?.access_token;
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
@@ -1520,28 +1535,45 @@ class AgribuddyCard extends HTMLElement {
     return short + (ctx ? ` — Check HA logs (search "${ctx}").` : "");
   }
 
+  /**
+   * Call the Agribuddy HTTP API through HA's own authenticated client
+   * (hass.callApi), which uses the long-lived WebSocket connection auth and
+   * transparently refreshes expired tokens. This replaces a hand-rolled
+   * fetch that attached hass.auth.data.access_token directly — that token
+   * expires (~30 min), after which every request 401'd ("invalid
+   * authentication"), the /plots fetch failed, and the grow plots vanished.
+   *
+   * Preserves the existing { status, data } return contract so callers are
+   * unchanged. callApi prepends "/api/", so we pass the path minus that
+   * prefix. It throws on non-2xx; we map that back into { status, data }.
+   *
+   * `opts` supports { method, headers, body }. For JSON bodies we parse the
+   * string body back into an object (callApi serializes the parameters).
+   */
   async _apiFetch(path, opts = {}) {
-    const r = await fetch(API_BASE + path, { headers: this._authHeaders(), ...opts });
-    const txt = await r.text();
-    let data;
-    try {
-      data = JSON.parse(txt);
-    } catch {
-      // Surface the actual response so we can diagnose. HA returns plain-text
-      // errors for 401/403/404/405 — the body tells us exactly what went wrong.
-      const preview = (txt || "").trim().slice(0, 200) || "(empty body)";
-      console.warn(
-        "[Agribuddy] Non-JSON response from", path,
-        "status:", r.status,
-        "content-type:", r.headers.get("content-type"),
-        "body:", preview,
-      );
-      data = {
-        error: "invalid_response",
-        message: `HTTP ${r.status}: ${preview}`,
-      };
+    const method = (opts.method || "GET").toUpperCase();
+    // path comes in as "/plots"; callApi wants "agribuddy/plots" (it adds /api/).
+    const apiPath = ("agribuddy" + path).replace(/^\/+/, "");
+    let params;
+    if (opts.body != null) {
+      params = typeof opts.body === "string" ? JSON.parse(opts.body) : opts.body;
     }
-    return { status: r.status, data };
+    try {
+      const data = await this._hass.callApi(method, apiPath, params);
+      return { status: 200, data };
+    } catch (err) {
+      // hass.callApi rejects with { status_code, body } on HTTP errors, or a
+      // generic Error otherwise. Normalize into our { status, data } shape.
+      const status = (err && (err.status_code || err.status)) || 0;
+      let data = err && err.body;
+      if (data == null) {
+        data = { error: "request_failed", message: (err && err.message) || String(err) };
+      } else if (typeof data === "string") {
+        try { data = JSON.parse(data); }
+        catch { data = { error: "http_error", message: `HTTP ${status}: ${data.slice(0, 200)}` }; }
+      }
+      return { status: status || 0, data };
+    }
   }
 
   /* ── Bus events: auto-refresh on data changes ──────────────────────────── */
@@ -1665,7 +1697,7 @@ class AgribuddyCard extends HTMLElement {
 
       <div id="view-container"></div>
 
-      <div style="margin-top:14px;font-size:10px;color:var(--secondary-text-color);opacity:.45;text-align:right;user-select:none">agribuddy-v1.2.6</div>
+      <div style="margin-top:14px;font-size:10px;color:var(--secondary-text-color);opacity:.45;text-align:right;user-select:none">agribuddy-v1.2.7</div>
 
       ${this._tplPlantOverlay()}
       ${this._tplSettingsOverlay()}
@@ -3822,6 +3854,16 @@ class AgribuddyCard extends HTMLElement {
     const plotId = this._activePlot ? this._activePlot.id : (plant.plot_id || null);
     const plotName = this._activePlot ? this._activePlot.name : (plant.plot_name || "");
 
+    // Custom (user-created) plants don't have a Verdantly scientific_name /
+    // id in their species_data, so they can't go through the API add-plant
+    // form path (which derives species_id from those). Duplicate them
+    // directly: reuse the stored species_data, mint a NEW custom:<uuid> id,
+    // and call add_plant. Copies the per-plant water-schedule override too.
+    if (plant.is_custom || sd.is_custom) {
+      this._duplicateCustomPlant(plant, plotId, plotName);
+      return;
+    }
+
     // Close the plant detail overlay, open a fresh add-plant overlay, then
     // jump directly to the prefilled form step using the existing
     // species_data (which the backend normalizer already shaped).
@@ -3846,23 +3888,71 @@ class AgribuddyCard extends HTMLElement {
     if (hdr) hdr.textContent = `Duplicate plant${plotName ? ` in ${plotName}` : ""}`;
   }
 
+  /**
+   * Duplicate a custom (user-created) plant. Deep-copies its species_data,
+   * assigns a fresh custom:<uuid> species_id, and adds it via add_plant.
+   * Also re-applies the original's watering-schedule override (min/max days)
+   * since that lives in user_overrides, not species_data.
+   */
+  async _duplicateCustomPlant(plant, plotId, plotName) {
+    const sd = JSON.parse(JSON.stringify(plant.species_data || {}));
+    sd.is_custom = true;
+    const uuid = (window.crypto && window.crypto.randomUUID)
+      ? window.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const speciesId = `custom:${uuid}`;
+    const name = `${plant.plant_name || plant.name || "Custom plant"} (copy)`;
+    try {
+      await this._hass.callService(DOMAIN, "add_plant", {
+        plant_name: name,
+        species_id: speciesId,
+        start_type: plant.start_type || "seed",
+        start_date: localKey(new Date()),
+        plot_id: plotId,
+        species_data: sd,
+      });
+      // Re-apply the watering-schedule override if the source had one.
+      const wMin = plant.watering_min_days;
+      const wMax = plant.watering_max_days;
+      if (wMin != null || wMax != null) {
+        try {
+          await this._fetchPlots();
+          const created = this._allPlants().find(p => p.species_id === speciesId);
+          const cpid = created && (created.plant_id || created.id);
+          if (cpid) {
+            const overrides = {};
+            if (wMin != null) overrides.watering_min_days = wMin;
+            if (wMax != null) overrides.watering_max_days = wMax;
+            await this._hass.callService(DOMAIN, "update_plant_overrides", {
+              plant_id: cpid, overrides,
+            });
+          }
+        } catch (e) { console.warn("Agribuddy: dup water override failed:", e); }
+      }
+      this._close("plant-overlay");
+      this._ok(`${name} created!`);
+    } catch (e) {
+      this._err("Failed to duplicate plant", this._fmtErr(e, "agribuddy"));
+    }
+  }
+
   _tplSettingsOverlay() {
     const title = this._config.title || "My Garden";
-    // Allow ANY entity, not just the weather.* domain. We render a datalist
-    // for autocomplete with weather/sensor entities listed first (most likely
-    // candidates) and fall back to text entry so users can type any entity id.
+    // Weather-entity autocomplete. Offer weather.* entities first, then
+    // weather-ish sensors (temperature/precipitation/etc.), as a native
+    // <datalist> that filters as the user types. We deliberately DON'T dump
+    // every entity in the system — on a large install that's thousands of
+    // options and makes the picker useless. Any entity id can still be typed
+    // by hand (the field is free text), it just won't be suggested.
     const allEntities = Object.keys(this._hass?.states || {});
     const weatherFirst = allEntities
       .filter(id => id.startsWith("weather."))
       .sort();
     const sensorEntities = allEntities
-      .filter(id => id.startsWith("sensor.") && /weather|condition|forecast|rain|precip/i.test(id))
+      .filter(id => id.startsWith("sensor.") && /weather|temperature|condition|forecast|rain|precip|humid/i.test(id))
       .sort();
-    const otherEntities = allEntities
-      .filter(id => !id.startsWith("weather.") && !sensorEntities.includes(id))
-      .sort();
-    // Datalist: weather first, then weather-ish sensors, then everything else.
-    const entityList = [...weatherFirst, ...sensorEntities, ...otherEntities];
+    // Suggestions = weather entities + weather-ish sensors only.
+    const entityList = [...weatherFirst, ...sensorEntities];
     const currentWeather = this._config.weather_entity || weatherFirst[0] || "";
     const datalistOpts = entityList
       .map(id => `<option value="${id}"></option>`)
@@ -3900,9 +3990,9 @@ class AgribuddyCard extends HTMLElement {
         <div class="set-section">Weather entity</div>
         <div class="form-row">
           <span class="form-label">Entity representing current weather</span>
-          <input class="form-input" type="text" id="cfg-weather" list="agribuddy-entity-list" value="${this._esc(currentWeather)}" placeholder="weather.home or any entity id">
+          <input class="form-input" type="text" id="cfg-weather" list="agribuddy-entity-list" value="${this._esc(currentWeather)}" placeholder="Start typing… e.g. weather.home" autocomplete="off">
           <datalist id="agribuddy-entity-list">${datalistOpts}</datalist>
-          <span class="form-hint">Any entity is allowed. Rain/snow/frost are detected from the entity's state and attributes. Saved both in the card and on the integration backend.</span>
+          <span class="form-hint">Start typing to pick from your weather entities (weather.* and weather-related sensors). Any entity id can also be entered manually. Rain/snow/frost are read from the entity's state and attributes.</span>
         </div>
 
         <div class="set-section">Hardiness Zone Range</div>
@@ -4055,7 +4145,7 @@ class AgribuddyCard extends HTMLElement {
         <span style="color:var(--secondary-text-color)">API client:</span>
         <span style="color:${ok ? "#0F6E56" : "#993C1D"};font-weight:600">${ok ? "✓ Ready" : "✗ Not loaded"}</span>${usageRow}
         <span style="color:var(--secondary-text-color)">Backend http_api:</span>
-        <span style="font-family:monospace;font-size:11px">${data.http_api_version || "(missing — file is older than v1.2.6)"}</span>
+        <span style="font-family:monospace;font-size:11px">${data.http_api_version || "(missing — file is older than v1.2.7)"}</span>
       </div>`;
       // Pre-fill the form fields from backend values when card config doesn't override
       const wsel = this._el("cfg-weather");
@@ -5192,7 +5282,7 @@ if (!window.customCards.some(c => c.type === "agribuddy-card")) {
   });
 }
 console.info(
-  "%c Agribuddy CARD %c v1.2.6 ",
+  "%c Agribuddy CARD %c v1.2.7 ",
   "background:#1D9E75;color:#fff;font-weight:bold;padding:2px 4px;border-radius:4px 0 0 4px",
   "background:#0F6E56;color:#fff;padding:2px 4px;border-radius:0 4px 4px 0",
 );
