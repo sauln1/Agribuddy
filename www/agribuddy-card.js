@@ -1,6 +1,17 @@
 /**
- * Agribuddy Card  v1.2.7
+ * Agribuddy Card  v1.2.8
  * type: custom:agribuddy-card
+ *
+ * v1.2.8 — Fertilizing & pruning schedules
+ *  - Drill-down: Fertilizing and Pruning rows show the schedule interval and a
+ *    Due/OK status (mirrors the watering model). Fertilizing and Pruning notes
+ *    appear as collapsible care sections.
+ *  - Edit plant details: editable min/max day intervals and notes for both
+ *    fertilizing and pruning (saved as per-plant overrides). The min interval
+ *    drives the new sensors.
+ *  - New "Pruned" log-event type (with icon/color/label).
+ *  - Pairs with backend v1.2.4, which exposes sensor.<plant>_fertilizing and
+ *    sensor.<plant>_pruning (ok/due/scheduled) for automations.
  *
  * v1.2.7 — Auth fix, custom-plant duplicate, weather picker
  *  - Fixed "invalid authentication" errors (and vanishing grow plots): API
@@ -128,7 +139,7 @@ const localKey = d => {
 };
 
 const eventIcon = type => ({
-  watered: "💧", fertilized: "🌿", pest_spotted: "🐛", pest: "🐛",
+  watered: "💧", fertilized: "🌿", pruned: "✂️", pest_spotted: "🐛", pest: "🐛",
   harvested: "🌾", sprouted: "🌱", transplanted: "🪴", planted: "🌰",
   dead: "💀",
   rain_detected: "🌧️", frost_alert: "❄️", snow: "🌨️",
@@ -158,6 +169,7 @@ const PLANNER_EVENT_COLORS = {
   // reads clearly as rain, not a manual watering.
   rain_detected: "#4FA3E3",
   fertilized: "#C0DD97",
+  pruned: "#6FBF9C",
   frost_alert: "#E24B4A",
   snow: "#A8C8DD",
   pest_spotted: "#D4A04A",
@@ -190,6 +202,7 @@ const SEASON_BUBBLE_COLORS = {
 const EVENT_LABELS = {
   watered: "Watered",
   fertilized: "Fertilized",
+  pruned: "Pruned",
   pest_spotted: "Pest spotted",
   pest: "Pest spotted",
   harvested: "Harvested",
@@ -1697,7 +1710,7 @@ class AgribuddyCard extends HTMLElement {
 
       <div id="view-container"></div>
 
-      <div style="margin-top:14px;font-size:10px;color:var(--secondary-text-color);opacity:.45;text-align:right;user-select:none">agribuddy-v1.2.7</div>
+      <div style="margin-top:14px;font-size:10px;color:var(--secondary-text-color);opacity:.45;text-align:right;user-select:none">agribuddy-v1.2.8</div>
 
       ${this._tplPlantOverlay()}
       ${this._tplSettingsOverlay()}
@@ -2605,6 +2618,10 @@ class AgribuddyCard extends HTMLElement {
               <span class="tcm-kv-value" id="tc-water-range">—</span>
               <span class="tcm-kv-label">Days since water</span>
               <span class="tcm-kv-value" id="tc-days-since-water">—</span>
+              <span class="tcm-kv-label">Fertilizing</span>
+              <span class="tcm-kv-value" id="tc-fertilizing">—</span>
+              <span class="tcm-kv-label">Pruning</span>
+              <span class="tcm-kv-value" id="tc-pruning">—</span>
               <span class="tcm-kv-label">Toxicity</span>
               <span class="tcm-kv-value tcm-kv-value-warn" id="tc-toxicity">—</span>
             </div>
@@ -2633,6 +2650,7 @@ class AgribuddyCard extends HTMLElement {
                 <select class="form-select" id="evt-type">
                   <option value="watered">Watered</option>
                   <option value="fertilized">Fertilized</option>
+                  <option value="pruned">Pruned</option>
                   <option value="pest_spotted">Pest spotted</option>
                   <option value="snow">Snow</option>
                   <option value="indoor_start">Indoor start</option>
@@ -2686,6 +2704,40 @@ class AgribuddyCard extends HTMLElement {
                   <option value="Moderate">Moderate (default 3–7 days)</option>
                   <option value="High">High (default 1–3 days)</option>
                 </select>
+              </div>
+              <!-- v1.2.4 — Fertilizing schedule + guidance. The min value
+                   drives the fertilizing sensor's "due" state. Leave blank to
+                   keep the sensor at "ok" (no schedule). -->
+              <div class="form-row">
+                <span class="form-label">🧪 Fertilizing (days between)</span>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input class="form-input ov-water-num" type="number" min="1" max="365"
+                         id="ov-fert-min" placeholder="min days"
+                         title="Minimum days between fertilizing — drives the fertilizing sensor's 'due' state">
+                  <span style="color:var(--secondary-text-color);font-size:14px">to</span>
+                  <input class="form-input ov-water-num" type="number" min="1" max="365"
+                         id="ov-fert-max" placeholder="max days"
+                         title="Maximum days between fertilizing (display only)">
+                </div>
+              </div>
+              <div class="form-row"><span class="form-label">Fertilizing notes</span>
+                <textarea class="form-textarea" id="ov-fert-instr" placeholder="e.g. Feed every 2 weeks with balanced liquid fertilizer…"></textarea>
+              </div>
+              <!-- v1.2.4 — Pruning schedule + guidance (same model). -->
+              <div class="form-row">
+                <span class="form-label">✂️ Pruning (days between)</span>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input class="form-input ov-water-num" type="number" min="1" max="365"
+                         id="ov-prune-min" placeholder="min days"
+                         title="Minimum days between pruning — drives the pruning sensor's 'due' state">
+                  <span style="color:var(--secondary-text-color);font-size:14px">to</span>
+                  <input class="form-input ov-water-num" type="number" min="1" max="365"
+                         id="ov-prune-max" placeholder="max days"
+                         title="Maximum days between pruning (display only)">
+                </div>
+              </div>
+              <div class="form-row"><span class="form-label">Pruning notes</span>
+                <textarea class="form-textarea" id="ov-prune-instr" placeholder="e.g. Pinch suckers weekly; prune lower leaves…"></textarea>
               </div>
               <div class="form-row"><span class="form-label">Soil preference</span>
                 <input class="form-input" type="text" id="ov-soil-pref" placeholder="e.g. Well-drained loam">
@@ -2995,6 +3047,10 @@ class AgribuddyCard extends HTMLElement {
       { icon: "🌱", title: "Transplant Outdoors", text: planting.transplantOutdoors },
       { icon: "🌾", title: "Direct Sow", text: planting.directSow },
       { icon: "🧺", title: "Harvesting", text: ci.harvestingInstructions },
+      // v1.2.4 — prefer the enriched (override-aware) instructions, falling
+      // back to the raw careInstructions object.
+      { icon: "🧪", title: "Fertilizing", text: plant.fertilizing_instructions || ci.fertilizingInstructions },
+      { icon: "✂️", title: "Pruning", text: plant.pruning_instructions || ci.pruningInstructions },
     ].filter(s => s.text && String(s.text).trim());
 
     if (!sections.length) {
@@ -3382,6 +3438,29 @@ class AgribuddyCard extends HTMLElement {
       }
     }
 
+    // Fertilizing + pruning (v1.2.4). Show the schedule interval and a
+    // status chip mirroring the watering "days since" treatment: when a
+    // min-day interval is set we show "every N–M days" plus a "Due"/"OK"
+    // marker (red when due). With no interval configured we show a dash.
+    const fmtSchedule = (min, max, status, sinceDays) => {
+      if (min == null && max == null) return { text: dash, due: false };
+      let range;
+      if (min != null && max != null) range = min === max ? `every ${min} days` : `every ${min}–${max} days`;
+      else if (min != null) range = `every ${min} days`;
+      else range = `up to ${max} days`;
+      const due = status === "due";
+      const sinceTxt = sinceDays == null ? "never done" : sinceDays === 0 ? "done today" : `${sinceDays}d ago`;
+      return { text: `${range} · ${due ? "Due now" : sinceTxt}`, due };
+    };
+    const fEl = this._el("tc-fertilizing");
+    const fInfo = fmtSchedule(plant.fertilize_min_days, plant.fertilize_max_days, plant.fertilizing_status, plant.days_since_fertilized);
+    fEl.textContent = fInfo.text;
+    fEl.classList.toggle("tcm-kv-value-warn", fInfo.due);
+    const prEl = this._el("tc-pruning");
+    const prInfo = fmtSchedule(plant.prune_min_days, plant.prune_max_days, plant.pruning_status, plant.days_since_pruned);
+    prEl.textContent = prInfo.text;
+    prEl.classList.toggle("tcm-kv-value-warn", prInfo.due);
+
     // Care Instructions — v1.2.0: collapsible per-section dropdowns,
     // sourced from the /name endpoint's careInstructions object. Empty
     // sections are omitted.
@@ -3506,6 +3585,12 @@ class AgribuddyCard extends HTMLElement {
     set("ov-water-use", ov.water_use);
     set("ov-water-min", ov.watering_min_days);
     set("ov-water-max", ov.watering_max_days);
+    set("ov-fert-min", ov.fertilize_min_days);
+    set("ov-fert-max", ov.fertilize_max_days);
+    set("ov-fert-instr", ov.fertilizing_instructions);
+    set("ov-prune-min", ov.prune_min_days);
+    set("ov-prune-max", ov.prune_max_days);
+    set("ov-prune-instr", ov.pruning_instructions);
     set("ov-soil-pref", ov.soil_preference);
     set("ov-spacing", ov.spacing_requirement);
     set("ov-growth-period", ov.growth_period);
@@ -3677,6 +3762,12 @@ class AgribuddyCard extends HTMLElement {
       water_use: v("ov-water-use"),
       watering_min_days: intnum("ov-water-min"),
       watering_max_days: intnum("ov-water-max"),
+      fertilize_min_days: intnum("ov-fert-min"),
+      fertilize_max_days: intnum("ov-fert-max"),
+      fertilizing_instructions: v("ov-fert-instr"),
+      prune_min_days: intnum("ov-prune-min"),
+      prune_max_days: intnum("ov-prune-max"),
+      pruning_instructions: v("ov-prune-instr"),
       soil_preference: v("ov-soil-pref"),
       spacing_requirement: v("ov-spacing"),
       growth_period: v("ov-growth-period"),
@@ -3714,6 +3805,18 @@ class AgribuddyCard extends HTMLElement {
       && overrides.days_to_harvest_min > overrides.days_to_harvest_max) {
       this._err("Invalid harvest range",
         "Days-to-harvest min must be less than or equal to max.");
+      return;
+    }
+    if (overrides.fertilize_min_days !== "" && overrides.fertilize_max_days !== ""
+      && overrides.fertilize_min_days > overrides.fertilize_max_days) {
+      this._err("Invalid fertilizing range",
+        "Fertilizing min days must be less than or equal to max days.");
+      return;
+    }
+    if (overrides.prune_min_days !== "" && overrides.prune_max_days !== ""
+      && overrides.prune_min_days > overrides.prune_max_days) {
+      this._err("Invalid pruning range",
+        "Pruning min days must be less than or equal to max days.");
       return;
     }
 
@@ -4145,7 +4248,7 @@ class AgribuddyCard extends HTMLElement {
         <span style="color:var(--secondary-text-color)">API client:</span>
         <span style="color:${ok ? "#0F6E56" : "#993C1D"};font-weight:600">${ok ? "✓ Ready" : "✗ Not loaded"}</span>${usageRow}
         <span style="color:var(--secondary-text-color)">Backend http_api:</span>
-        <span style="font-family:monospace;font-size:11px">${data.http_api_version || "(missing — file is older than v1.2.7)"}</span>
+        <span style="font-family:monospace;font-size:11px">${data.http_api_version || "(missing — file is older than v1.2.8)"}</span>
       </div>`;
       // Pre-fill the form fields from backend values when card config doesn't override
       const wsel = this._el("cfg-weather");
@@ -5282,7 +5385,7 @@ if (!window.customCards.some(c => c.type === "agribuddy-card")) {
   });
 }
 console.info(
-  "%c Agribuddy CARD %c v1.2.7 ",
+  "%c Agribuddy CARD %c v1.2.8 ",
   "background:#1D9E75;color:#fff;font-weight:bold;padding:2px 4px;border-radius:4px 0 0 4px",
   "background:#0F6E56;color:#fff;padding:2px 4px;border-radius:0 4px 4px 0",
 );
