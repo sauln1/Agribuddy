@@ -12,6 +12,9 @@ A Home Assistant integration + Lovelace card for tracking your garden. Plan grow
 ---
 # v1.2.4 UPDATE NOTES
 
+## Important Note:
+### The front end portion of this update requires a hard refresh of HA in order to fix the token refresh issue. Make sure you update and then refresh HA. If for some reason the issue persists, make sure the resource updated properly, you may need to re-install the integration.
+
 ### In v1.2.4 we're fixing a few bugs:
    - It was appearing that there were log in failed errors occurring in the logs and causing plots to disappear. It looks like this was most likely caused by HA's access token expiring and not being refreshed properly. Fixed to enable an auto refresh.
    - Manually created plants can now be duplicated!
