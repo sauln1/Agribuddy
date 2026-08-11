@@ -84,6 +84,7 @@ EVENT_HARVESTED = "harvested"
 EVENT_TRANSPLANTED = "transplanted"
 EVENT_INDOOR_START = "indoor_start"  # v1.2.0 — plant started indoors
 EVENT_SPROUTED = "sprouted"
+EVENT_PRUNED = "pruned"  # v1.2.4 — pruning event (drives the pruning sensor)
 EVENT_PLANTED = "planted"
 # v1.2.0: the terminal "plant died / was pulled" event was renamed dead→removed.
 # EVENT_DEAD kept as a backwards-compat alias so any lingering import resolves;
@@ -102,6 +103,7 @@ MANUAL_EVENT_TYPES = [
     EVENT_TRANSPLANTED,
     EVENT_INDOOR_START,
     EVENT_SPROUTED,
+    EVENT_PRUNED,
     EVENT_REMOVED,
     EVENT_OTHER,
 ]

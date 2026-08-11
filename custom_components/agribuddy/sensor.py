@@ -311,6 +311,113 @@ class PlantSensor(CoordinatorEntity[AgribuddyCoordinator], SensorEntity):
         }
 
 
+class _ScheduleSensorBase(CoordinatorEntity[AgribuddyCoordinator], SensorEntity):
+    """Shared base for the fertilizing + pruning schedule sensors (v1.2.4).
+
+    Each is an ENUM sensor mirroring the watering model: state is "ok",
+    "due", or "scheduled". "due" fires when days since the last relevant
+    event (or the plant's start date, if never done) reaches the user's
+    configured min-day interval. With no interval configured the sensor
+    stays "ok" so it never triggers an automation.
+    """
+
+    _attr_has_entity_name = False
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options: ClassVar[list[str]] = ["ok", "due", "scheduled"]
+
+    _kind = ""
+    _label = ""
+    _status_field = ""
+    _min_field = ""
+    _max_field = ""
+    _since_field = ""
+    _last_field = ""
+    _instr_field = ""
+    _due_icon = "mdi:leaf"
+    _ok_icon = "mdi:leaf"
+
+    def __init__(self, coord, entry, plant_id, plant_name: str = ""):
+        super().__init__(coord)
+        self._pid = plant_id
+        self._attr_unique_id = f"{entry.entry_id}_plant_{plant_id}_{self._kind}"
+        self._attr_device_info = _device(entry)
+        if plant_name:
+            self._attr_suggested_object_id = (
+                f"{_slugify_plant_name(plant_name)}_{self._kind}"
+            )
+
+    @property
+    def _plant(self) -> dict | None:
+        return next(
+            (p for p in self.coordinator.get_plants() if p["id"] == self._pid), None
+        )
+
+    @property
+    def name(self) -> str:
+        p = self._plant
+        base = (p.get("name") if p else None) or f"Plant {self._pid[:8]}"
+        return f"{base} {self._label}"
+
+    @property
+    def native_value(self) -> str:
+        p = self._plant
+        if not p:
+            return "ok"
+        return p.get(self._status_field) or "ok"
+
+    @property
+    def icon(self) -> str:
+        return self._due_icon if self.native_value == "due" else self._ok_icon
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        p = self._plant
+        if not p:
+            return {}
+        return {
+            "plant_id": p["id"],
+            "plant_name": p.get("name"),
+            "status": p.get(self._status_field),
+            f"needs_{self._kind}": p.get(self._status_field) == "due",
+            "days_since": p.get(self._since_field),
+            "last_done": p.get(self._last_field),
+            "min_days": p.get(self._min_field),
+            "max_days": p.get(self._max_field),
+            "instructions": p.get(self._instr_field),
+            "is_scheduled": p.get("is_scheduled", False),
+        }
+
+
+class PlantFertilizingSensor(_ScheduleSensorBase):
+    """`sensor.<plant>_fertilizing` — ok/due/scheduled (v1.2.4)."""
+
+    _kind = "fertilizing"
+    _label = "Fertilizing"
+    _status_field = "fertilizing_status"
+    _min_field = "fertilize_min_days"
+    _max_field = "fertilize_max_days"
+    _since_field = "days_since_fertilized"
+    _last_field = "last_fertilized"
+    _instr_field = "fertilizing_instructions"
+    _due_icon = "mdi:bottle-tonic-plus"
+    _ok_icon = "mdi:bottle-tonic"
+
+
+class PlantPruningSensor(_ScheduleSensorBase):
+    """`sensor.<plant>_pruning` — ok/due/scheduled (v1.2.4)."""
+
+    _kind = "pruning"
+    _label = "Pruning"
+    _status_field = "pruning_status"
+    _min_field = "prune_min_days"
+    _max_field = "prune_max_days"
+    _since_field = "days_since_pruned"
+    _last_field = "last_pruned"
+    _instr_field = "pruning_instructions"
+    _due_icon = "mdi:content-cut"
+    _ok_icon = "mdi:content-cut"
+
+
 def _slugify_plant_name(name: str) -> str:
     """Convert a plant name into a safe entity-id object suffix.
 
@@ -350,18 +457,15 @@ class PlantSensorManager:
         new_ids = current_ids - self._known
         if new_ids:
             current_by_id = {p["id"]: p for p in self._coord.get_plants()}
-            entities = [
-                PlantSensor(
-                    self._coord,
-                    self._entry,
-                    pid,
-                    plant_name=current_by_id[pid].get("name") or "",
-                )
-                for pid in new_ids
-            ]
+            entities = []
+            for pid in new_ids:
+                pname = current_by_id[pid].get("name") or ""
+                entities.append(PlantSensor(self._coord, self._entry, pid, plant_name=pname))
+                entities.append(PlantFertilizingSensor(self._coord, self._entry, pid, plant_name=pname))
+                entities.append(PlantPruningSensor(self._coord, self._entry, pid, plant_name=pname))
             self._add(entities)
             self._known.update(new_ids)
-            _LOGGER.info("Agribuddy: created %d new plant sensor(s)", len(entities))
+            _LOGGER.info("Agribuddy: created sensors for %d new plant(s)", len(new_ids))
         # Remove sensors for plants no longer visible (soft-deleted or
         # hard-deleted by 6-month prune). Pulls from HA's entity registry
         # using the deterministic unique_id pattern set in PlantSensor.
@@ -369,13 +473,14 @@ class PlantSensorManager:
         if removed_ids:
             registry = er.async_get(self._hass)
             for pid in list(removed_ids):
-                unique_id = f"{self._entry.entry_id}_plant_{pid}"
-                ent_id = registry.async_get_entity_id("sensor", DOMAIN, unique_id)
-                if ent_id:
-                    registry.async_remove(ent_id)
-                    _LOGGER.info(
-                        "Agribuddy: removed sensor for deleted plant id=%s (entity %s)",
-                        pid,
-                        ent_id,
-                    )
+                for suffix in ("", "_fertilizing", "_pruning"):
+                    unique_id = f"{self._entry.entry_id}_plant_{pid}{suffix}"
+                    ent_id = registry.async_get_entity_id("sensor", DOMAIN, unique_id)
+                    if ent_id:
+                        registry.async_remove(ent_id)
+                        _LOGGER.info(
+                            "Agribuddy: removed sensor for deleted plant id=%s (entity %s)",
+                            pid,
+                            ent_id,
+                        )
                 self._known.discard(pid)
