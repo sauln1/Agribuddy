@@ -1,4 +1,4 @@
-# Agribuddy
+# Agribuddy :)
 
 A Home Assistant integration + Lovelace card for tracking your garden. Plan grow plots, log waterings and harvests, and let the integration warn you when plants need attention based on weather and watering history.
 
